@@ -3,17 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Absensi PHL Online</title>
+    <title>Absensi PHL Terpadu</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.9.3/css/bulma.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         body { background-color: #f4f6f8; padding: 20px 10px; }
         .card { border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        .hidden { display: none; }
-        #preview { width: 100%; border-radius: 8px; margin-top: 10px; border: 2px dashed #ccc; min-height: 150px; object-fit: contain; }
+        .hidden { display: none !important; }
+        #preview { width: 100%; border-radius: 8px; margin-top: 10px; border: 2px dashed #ccc; min-height: 150px; object-fit: contain; background: #fafafa; }
+        .tabs li.is-active a { background-color: #3298dc; color: white; border-bottom-color: #3298dc; }
+        
+        /* Style untuk Pesan Jarak */
+        .jarak-box { margin-bottom: 15px; padding: 10px; border-radius: 5px; font-weight: bold; font-size: 0.9em; text-align: center; }
+        .jarak-aman { background-color: #effaf3; color: #257942; border: 1px solid #48c774; }
+        .jarak-bahaya { background-color: #feecf0; color: #cc0f35; border: 1px solid #f14668; }
     </style>
 </head>
 <body>
+
 <div class="container" style="max-width: 480px;">
     <div class="card">
         <div class="card-content">
@@ -30,14 +37,17 @@
                 <div class="field">
                     <label class="label">Pilih Posko/Korwil</label>
                     <div class="control has-icons-left">
-                        <div class="select is-fullwidth">
+                        <div class="select is-fullwidth" id="divSelect">
                             <select id="lokasi" required onchange="updateTargetLokasi()">
-                                <option value="" disabled selected>Loading Data...</option>
+                                <option value="" disabled selected>Sedang memuat data...</option>
                             </select>
                         </div>
                         <span class="icon is-small is-left"><i class="fas fa-map-marker-alt"></i></span>
                     </div>
                 </div>
+
+                <div id="radiusInfo" class="hidden">
+                    </div>
 
                 <div class="field">
                     <label class="label">Nama Lengkap</label>
@@ -47,24 +57,25 @@
                     </div>
                 </div>
 
-                <div class="notification is-light is-info is-small" id="gpsStatus">
-                    <i class="fas fa-satellite-dish"></i> Mencari sinyal GPS...
+                <div class="notification is-light is-info is-small" id="gpsStatus" style="padding: 5px 10px;">
+                    <i class="fas fa-spinner fa-pulse"></i> Mencari sinyal GPS...
                 </div>
 
-                <div id="boxLaporan" class="hidden">
-                    <div class="field"><label class="label">Hasil Pekerjaan</label><textarea id="hasil" class="textarea" rows="2"></textarea></div>
-                    <div class="field"><label class="label">Kendala</label><input id="kendala" class="input" type="text"></div>
-                    <div class="field"><label class="label">Tindak Lanjut</label><input id="lanjut" class="input" type="text"></div>
+                <div id="boxLaporan" class="hidden" style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <h6 class="title is-6 mb-2">📝 Laporan Harian</h6>
+                    <div class="field"><label class="label is-small">Hasil Pekerjaan</label><textarea id="hasil" class="textarea is-small" rows="2"></textarea></div>
+                    <div class="field"><label class="label is-small">Kendala</label><input id="kendala" class="input is-small" type="text"></div>
+                    <div class="field"><label class="label is-small">Tindak Lanjut</label><input id="lanjut" class="input is-small" type="text"></div>
                 </div>
 
-                <div class="field" style="margin-top: 20px;">
+                <div class="field" style="margin-top: 10px;">
                     <label class="label" id="lblFoto">Foto Selfie (Wajib)</label>
-                    <div class="file is-info is-fullwidth">
+                    <div class="file is-info is-fullwidth has-name">
                         <label class="file-label">
                             <input class="file-input" type="file" id="cameraInput" accept="image/*" capture="user" onchange="processImage()">
                             <span class="file-cta">
                                 <span class="file-icon"><i class="fas fa-camera"></i></span>
-                                <span class="file-label" id="btnFotoText">Ambil Foto</span>
+                                <span class="file-label" id="btnFotoText">Buka Kamera</span>
                             </span>
                         </label>
                     </div>
@@ -72,71 +83,142 @@
                     <img id="preview" src="" alt="Preview Foto">
                 </div>
 
-                <button type="submit" id="btnKirim" class="button is-primary is-fullwidth is-medium" style="margin-top:20px;" disabled>KIRIM DATA</button>
+                <button type="submit" id="btnKirim" class="button is-primary is-fullwidth is-medium" style="margin-top:20px;" disabled>
+                    <span class="icon"><i class="fas fa-paper-plane"></i></span>
+                    <span>KIRIM DATA</span>
+                </button>
             </form>
         </div>
     </div>
 </div>
 
 <script>
-    // --- TEMPEL URL DARI GOOGLE APPS SCRIPT DI BAWAH INI ---
+    // ==========================================
+    // ⚠️ PASTE URL APPS SCRIPT ANDA DISINI
+    // ==========================================
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzqP9-UyuKW2DcApCA80wE4NJF2iOKfL96RBAsvF-yRbilce21EcqdFCN73BvplhoffDQ/exec"; 
     
+    // Variabel Global
     let currentMode = "MASUK";
     let userLoc = { lat: 0, lng: 0 };
     let lokasiData = [];
     let selectedLokasi = null;
     let base64Foto = "";
+    let isRadiusOk = false; // Penjaga Radius
 
-    window.onload = () => { fetchLokasi(); initGPS(); };
+    // 1. Inisialisasi
+    window.onload = () => {
+        fetchLokasi();
+        initGPS();
+    };
 
+    // 2. Ambil Data Lokasi
     async function fetchLokasi() {
         try {
             let res = await fetch(SCRIPT_URL);
+            if (!res.ok) throw new Error("Gagal load data");
             let data = await res.json();
             lokasiData = data;
+            
             let select = document.getElementById("lokasi");
-            select.innerHTML = '<option value="" disabled selected>-- Pilih Lokasi --</option>';
+            select.innerHTML = '<option value="" disabled selected>-- Pilih Posko/Korwil --</option>';
             data.forEach((loc, index) => {
                 let opt = document.createElement("option");
                 opt.value = index; opt.text = loc.nama; select.add(opt);
             });
-        } catch(e) { console.log(e); }
+        } catch(e) { 
+            console.error(e);
+            document.getElementById("lokasi").innerHTML = '<option disabled>Error Memuat Data</option>';
+        }
     }
 
-    function updateTargetLokasi() { selectedLokasi = lokasiData[document.getElementById("lokasi").value]; }
+    // 3. Update Target Lokasi & Cek Radius
+    function updateTargetLokasi() {
+        let idx = document.getElementById("lokasi").value;
+        selectedLokasi = lokasiData[idx];
+        validateRadius(); // Cek Jarak setiap ganti lokasi
+    }
 
+    // 4. Logika Tab & Reset Foto
     window.setMode = (mode) => {
         currentMode = mode;
         let inputFoto = document.getElementById("cameraInput");
+        
+        // Reset Foto
+        base64Foto = "";
+        document.getElementById("preview").src = "";
+        document.getElementById("cameraInput").value = "";
+        checkReady(); // Cek ulang tombol
+
         if (mode === 'MASUK') {
             document.getElementById("tabMasuk").classList.add("is-active");
             document.getElementById("tabPulang").classList.remove("is-active");
             document.getElementById("boxLaporan").classList.add("hidden");
             document.getElementById("lblFoto").innerText = "Foto Selfie (Wajib Live)";
-            document.getElementById("btnFotoText").innerText = "Buka Kamera Depan";
+            document.getElementById("btnFotoText").innerText = "📸 Buka Kamera Depan";
             inputFoto.setAttribute("capture", "user");
         } else {
             document.getElementById("tabPulang").classList.add("is-active");
             document.getElementById("tabMasuk").classList.remove("is-active");
             document.getElementById("boxLaporan").classList.remove("hidden");
             document.getElementById("lblFoto").innerText = "Foto Kegiatan (Bisa Galeri)";
-            document.getElementById("btnFotoText").innerText = "Pilih Foto / Galeri";
+            document.getElementById("btnFotoText").innerText = "📂 Pilih Foto / Galeri";
             inputFoto.removeAttribute("capture");
         }
     }
 
+    // 5. GPS & Validasi Radius
     function initGPS() {
         if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition((pos) => {
-                userLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-                document.getElementById("gpsStatus").className = "notification is-success is-small";
-                document.getElementById("gpsStatus").innerHTML = `<i class="fas fa-check-circle"></i> Lokasi Terkunci`;
-                checkReady();
-            }, (err) => { document.getElementById("gpsStatus").className = "notification is-danger is-small"; document.getElementById("gpsStatus").innerText = "Gagal ambil GPS!"; }, { enableHighAccuracy: true });
-        }
+            navigator.geolocation.watchPosition( // Pakai watchPosition agar realtime
+                (pos) => {
+                    userLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                    document.getElementById("gpsStatus").className = "notification is-success is-small";
+                    document.getElementById("gpsStatus").innerHTML = `<i class="fas fa-check-circle"></i> Lokasi Terkunci: ${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`;
+                    validateRadius(); // Cek Jarak setiap GPS update
+                },
+                (err) => {
+                    document.getElementById("gpsStatus").className = "notification is-danger is-small";
+                    document.getElementById("gpsStatus").innerText = "Gagal ambil GPS. Wajib izinkan lokasi!";
+                    isRadiusOk = false;
+                    checkReady();
+                },
+                { enableHighAccuracy: true, maximumAge: 0 }
+            );
+        } else { alert("Browser tidak support GPS."); }
     }
 
+    // --- FUNGSI BARU: HITUNG JARAK (HAVERSINE) ---
+    function validateRadius() {
+        if (!selectedLokasi || userLoc.lat === 0) return;
+
+        let R = 6371000; // Meter
+        let dLat = (userLoc.lat - selectedLokasi.lat) * Math.PI / 180;
+        let dLon = (userLoc.lng - selectedLokasi.lng) * Math.PI / 180;
+        let a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(selectedLokasi.lat * Math.PI / 180) * Math.cos(userLoc.lat * Math.PI / 180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+        let c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        let distance = Math.floor(R * c);
+
+        let box = document.getElementById("radiusInfo");
+        box.classList.remove("hidden");
+
+        if (distance <= selectedLokasi.radius) {
+            // DALAM JANGKAUAN
+            isRadiusOk = true;
+            box.className = "jarak-box jarak-aman";
+            box.innerHTML = `<i class="fas fa-check"></i> Jarak Aman: ${distance}m (Max: ${selectedLokasi.radius}m)`;
+        } else {
+            // DILUAR JANGKAUAN
+            isRadiusOk = false;
+            box.className = "jarak-box jarak-bahaya";
+            box.innerHTML = `<i class="fas fa-times-circle"></i> ANDA TERLALU JAUH!<br>Jarak: ${distance}m (Max: ${selectedLokasi.radius}m)<br>Silakan merapat ke titik lokasi.`;
+        }
+        checkReady();
+    }
+
+    // 6. Proses Foto
     window.processImage = () => {
         let file = document.getElementById("cameraInput").files[0];
         if (!file) return;
@@ -149,9 +231,12 @@
                 let scale = 600 / img.width;
                 canvas.width = 600; canvas.height = img.height * scale;
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                let time = new Date().toLocaleString("id-ID");
-                ctx.font = "bold 20px Arial"; ctx.fillStyle = "yellow"; ctx.strokeStyle = "black"; ctx.lineWidth = 3;
-                ctx.strokeText(time, 15, canvas.height - 20); ctx.fillText(time, 15, canvas.height - 20);
+                
+                let d = new Date();
+                let time = d.getDate() + "/" + (d.getMonth()+1) + " " + d.getHours() + ":" + d.getMinutes();
+                ctx.font = "bold 24px Arial"; ctx.fillStyle = "yellow"; ctx.strokeStyle = "black"; ctx.lineWidth = 3;
+                ctx.strokeText(time, 20, canvas.height - 30); ctx.fillText(time, 20, canvas.height - 30);
+
                 base64Foto = canvas.toDataURL("image/jpeg", 0.7);
                 document.getElementById("preview").src = base64Foto;
                 checkReady();
@@ -161,26 +246,64 @@
         reader.readAsDataURL(file);
     }
 
-    function checkReady() { if (userLoc.lat !== 0 && base64Foto !== "") document.getElementById("btnKirim").disabled = false; }
+    // 7. Cek Tombol (WAJIB RADIUS OK)
+    function checkReady() {
+        let btn = document.getElementById("btnKirim");
+        // Tombol hanya nyala jika: GPS OK + Foto Ada + Radius Aman (isRadiusOk)
+        if (userLoc.lat !== 0 && base64Foto !== "" && isRadiusOk) {
+            btn.disabled = false;
+            btn.innerText = "KIRIM DATA";
+            btn.classList.remove("is-danger");
+            btn.classList.add("is-primary");
+        } else {
+            btn.disabled = true;
+            if (!isRadiusOk && selectedLokasi) {
+                btn.innerText = "❌ DILUAR JANGKAUAN";
+                btn.classList.remove("is-primary");
+                btn.classList.add("is-danger");
+            } else {
+                btn.innerText = "Lengkapi Data & Foto";
+            }
+        }
+    }
 
+    // 8. Submit Data
     document.getElementById("formAbsen").addEventListener("submit", (e) => {
         e.preventDefault();
-        if (!selectedLokasi) return alert("Pilih lokasi kerja dulu!");
+        if (!isRadiusOk) return alert("Anda berada diluar jangkauan absensi!");
+        
         let btn = document.getElementById("btnKirim");
         btn.classList.add("is-loading");
         
         let payload = {
-            jenis: currentMode, nama: document.getElementById("nama").value, lokasiKerja: selectedLokasi.nama,
-            targetLat: selectedLokasi.lat, targetLng: selectedLokasi.lng, maxRadius: selectedLokasi.radius,
-            userLat: userLoc.lat, userLng: userLoc.lng, hasil: document.getElementById("hasil").value,
-            kendala: document.getElementById("kendala").value, lanjut: document.getElementById("lanjut").value, foto: base64Foto
+            jenis: currentMode,
+            nama: document.getElementById("nama").value,
+            lokasiKerja: selectedLokasi.nama,
+            targetLat: selectedLokasi.lat,
+            targetLng: selectedLokasi.lng,
+            maxRadius: selectedLokasi.radius,
+            userLat: userLoc.lat,
+            userLng: userLoc.lng,
+            hasil: document.getElementById("hasil").value,
+            kendala: document.getElementById("kendala").value,
+            lanjut: document.getElementById("lanjut").value,
+            foto: base64Foto
         };
 
         fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) })
         .then(res => res.json())
-        .then(res => { alert(res.message + "\nJarak: " + res.jarak + " meter"); window.location.reload(); })
-        .catch(err => { alert("Error koneksi!"); btn.classList.remove("is-loading"); });
+        .then(res => { 
+            if(res.status === "SUCCESS") {
+                alert("✅ Sukses! \nJarak: " + res.jarak + "m");
+                window.location.reload(); 
+            } else {
+                alert("Gagal: " + res.message);
+                btn.classList.remove("is-loading");
+            }
+        })
+        .catch(err => { alert("Error koneksi"); btn.classList.remove("is-loading"); });
     });
 </script>
+
 </body>
 </html>
