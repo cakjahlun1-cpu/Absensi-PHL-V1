@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Absensi PHL Online</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.9.3/css/bulma.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { background-color: #f4f6f8; padding: 20px 10px; }
+        .card { border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .hidden { display: none; }
+        #preview { width: 100%; border-radius: 8px; margin-top: 10px; border: 2px dashed #ccc; min-height: 150px; object-fit: contain; }
+    </style>
+</head>
+<body>
+<div class="container" style="max-width: 480px;">
+    <div class="card">
+        <div class="card-content">
+            <h4 class="title is-4 has-text-centered"><i class="fas fa-user-clock"></i> Absensi PHL</h4>
+            
+            <div class="tabs is-centered is-toggle is-toggle-rounded is-fullwidth">
+                <ul>
+                    <li class="is-active" id="tabMasuk"><a onclick="setMode('MASUK')">Masuk</a></li>
+                    <li id="tabPulang"><a onclick="setMode('PULANG')">Pulang</a></li>
+                </ul>
+            </div>
+
+            <form id="formAbsen">
+                <div class="field">
+                    <label class="label">Pilih Posko/Korwil</label>
+                    <div class="control has-icons-left">
+                        <div class="select is-fullwidth">
+                            <select id="lokasi" required onchange="updateTargetLokasi()">
+                                <option value="" disabled selected>Loading Data...</option>
+                            </select>
+                        </div>
+                        <span class="icon is-small is-left"><i class="fas fa-map-marker-alt"></i></span>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label class="label">Nama Lengkap</label>
+                    <div class="control has-icons-left">
+                        <input class="input" type="text" id="nama" placeholder="Nama Anda" required>
+                        <span class="icon is-small is-left"><i class="fas fa-user"></i></span>
+                    </div>
+                </div>
+
+                <div class="notification is-light is-info is-small" id="gpsStatus">
+                    <i class="fas fa-satellite-dish"></i> Mencari sinyal GPS...
+                </div>
+
+                <div id="boxLaporan" class="hidden">
+                    <div class="field"><label class="label">Hasil Pekerjaan</label><textarea id="hasil" class="textarea" rows="2"></textarea></div>
+                    <div class="field"><label class="label">Kendala</label><input id="kendala" class="input" type="text"></div>
+                    <div class="field"><label class="label">Tindak Lanjut</label><input id="lanjut" class="input" type="text"></div>
+                </div>
+
+                <div class="field" style="margin-top: 20px;">
+                    <label class="label" id="lblFoto">Foto Selfie (Wajib)</label>
+                    <div class="file is-info is-fullwidth">
+                        <label class="file-label">
+                            <input class="file-input" type="file" id="cameraInput" accept="image/*" capture="user" onchange="processImage()">
+                            <span class="file-cta">
+                                <span class="file-icon"><i class="fas fa-camera"></i></span>
+                                <span class="file-label" id="btnFotoText">Ambil Foto</span>
+                            </span>
+                        </label>
+                    </div>
+                    <canvas id="canvas" style="display:none;"></canvas>
+                    <img id="preview" src="" alt="Preview Foto">
+                </div>
+
+                <button type="submit" id="btnKirim" class="button is-primary is-fullwidth is-medium" style="margin-top:20px;" disabled>KIRIM DATA</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- TEMPEL URL DARI GOOGLE APPS SCRIPT DI BAWAH INI ---
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzqP9-UyuKW2DcApCA80wE4NJF2iOKfL96RBAsvF-yRbilce21EcqdFCN73BvplhoffDQ/exec"; 
+    
+    let currentMode = "MASUK";
+    let userLoc = { lat: 0, lng: 0 };
+    let lokasiData = [];
+    let selectedLokasi = null;
+    let base64Foto = "";
+
+    window.onload = () => { fetchLokasi(); initGPS(); };
+
+    async function fetchLokasi() {
+        try {
+            let res = await fetch(SCRIPT_URL);
+            let data = await res.json();
+            lokasiData = data;
+            let select = document.getElementById("lokasi");
+            select.innerHTML = '<option value="" disabled selected>-- Pilih Lokasi --</option>';
+            data.forEach((loc, index) => {
+                let opt = document.createElement("option");
+                opt.value = index; opt.text = loc.nama; select.add(opt);
+            });
+        } catch(e) { console.log(e); }
+    }
+
+    function updateTargetLokasi() { selectedLokasi = lokasiData[document.getElementById("lokasi").value]; }
+
+    window.setMode = (mode) => {
+        currentMode = mode;
+        let inputFoto = document.getElementById("cameraInput");
+        if (mode === 'MASUK') {
+            document.getElementById("tabMasuk").classList.add("is-active");
+            document.getElementById("tabPulang").classList.remove("is-active");
+            document.getElementById("boxLaporan").classList.add("hidden");
+            document.getElementById("lblFoto").innerText = "Foto Selfie (Wajib Live)";
+            document.getElementById("btnFotoText").innerText = "Buka Kamera Depan";
+            inputFoto.setAttribute("capture", "user");
+        } else {
+            document.getElementById("tabPulang").classList.add("is-active");
+            document.getElementById("tabMasuk").classList.remove("is-active");
+            document.getElementById("boxLaporan").classList.remove("hidden");
+            document.getElementById("lblFoto").innerText = "Foto Kegiatan (Bisa Galeri)";
+            document.getElementById("btnFotoText").innerText = "Pilih Foto / Galeri";
+            inputFoto.removeAttribute("capture");
+        }
+    }
+
+    function initGPS() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition((pos) => {
+                userLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                document.getElementById("gpsStatus").className = "notification is-success is-small";
+                document.getElementById("gpsStatus").innerHTML = `<i class="fas fa-check-circle"></i> Lokasi Terkunci`;
+                checkReady();
+            }, (err) => { document.getElementById("gpsStatus").className = "notification is-danger is-small"; document.getElementById("gpsStatus").innerText = "Gagal ambil GPS!"; }, { enableHighAccuracy: true });
+        }
+    }
+
+    window.processImage = () => {
+        let file = document.getElementById("cameraInput").files[0];
+        if (!file) return;
+        let reader = new FileReader();
+        reader.onload = (e) => {
+            let img = new Image();
+            img.onload = () => {
+                let canvas = document.getElementById("canvas");
+                let ctx = canvas.getContext("2d");
+                let scale = 600 / img.width;
+                canvas.width = 600; canvas.height = img.height * scale;
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                let time = new Date().toLocaleString("id-ID");
+                ctx.font = "bold 20px Arial"; ctx.fillStyle = "yellow"; ctx.strokeStyle = "black"; ctx.lineWidth = 3;
+                ctx.strokeText(time, 15, canvas.height - 20); ctx.fillText(time, 15, canvas.height - 20);
+                base64Foto = canvas.toDataURL("image/jpeg", 0.7);
+                document.getElementById("preview").src = base64Foto;
+                checkReady();
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function checkReady() { if (userLoc.lat !== 0 && base64Foto !== "") document.getElementById("btnKirim").disabled = false; }
+
+    document.getElementById("formAbsen").addEventListener("submit", (e) => {
+        e.preventDefault();
+        if (!selectedLokasi) return alert("Pilih lokasi kerja dulu!");
+        let btn = document.getElementById("btnKirim");
+        btn.classList.add("is-loading");
+        
+        let payload = {
+            jenis: currentMode, nama: document.getElementById("nama").value, lokasiKerja: selectedLokasi.nama,
+            targetLat: selectedLokasi.lat, targetLng: selectedLokasi.lng, maxRadius: selectedLokasi.radius,
+            userLat: userLoc.lat, userLng: userLoc.lng, hasil: document.getElementById("hasil").value,
+            kendala: document.getElementById("kendala").value, lanjut: document.getElementById("lanjut").value, foto: base64Foto
+        };
+
+        fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) })
+        .then(res => res.json())
+        .then(res => { alert(res.message + "\nJarak: " + res.jarak + " meter"); window.location.reload(); })
+        .catch(err => { alert("Error koneksi!"); btn.classList.remove("is-loading"); });
+    });
+</script>
+</body>
+</html>
