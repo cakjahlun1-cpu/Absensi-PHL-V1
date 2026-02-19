@@ -141,6 +141,11 @@
     window.pilihJenis = (mode) => {
         currentMode = mode;
         
+        // 1. RESET DATA FOTO & PREVIEW SETIAP PINDAH TAB
+        base64Foto = ""; 
+        document.getElementById("cameraInput").value = ""; // Reset input file
+        document.getElementById("preview").src = ""; // Hilangkan gambar di layar
+        
         const btnMasuk = document.getElementById('btn-masuk');
         const btnPulang = document.getElementById('btn-pulang');
         const btnTidak = document.getElementById('btn-tidak');
@@ -157,14 +162,13 @@
             btn.style.border = (btn.id === 'btn-tidak') ? "1px solid #e63946" : "1px solid #4361ee";
         });
 
-        // LOGIKA TAB
+        // LOGIKA TAMPILAN
         if (mode === 'MASUK') {
             btnMasuk.style.backgroundColor = "#4361ee";
             btnMasuk.style.color = "white";
             areaTidak.style.display = "none";
             boxLaporan.classList.add("hidden");
             
-            // Setting Kamera: Wajib Selfie Live
             lblFoto.innerText = "Foto Selfie (Wajib Live)";
             btnFotoText.innerText = "📸 Buka Kamera Depan";
             inputFoto.setAttribute("capture", "user");
@@ -176,7 +180,6 @@
             areaTidak.style.display = "none";
             boxLaporan.classList.remove("hidden"); 
             
-            // Setting Kamera: Bisa Galeri / Foto Kegiatan
             lblFoto.innerText = "Foto Kegiatan (Bisa Galeri)";
             btnFotoText.innerText = "📂 Pilih Foto / Galeri";
             inputFoto.removeAttribute("capture");
@@ -188,15 +191,14 @@
             areaTidak.style.display = "block"; 
             boxLaporan.classList.add("hidden");
             
-            // Setting Kamera: Bisa Galeri (Misal Foto Surat Izin/Sakit)
-            lblFoto.innerText = "Foto Pendukung (Opsional)";
-            btnFotoText.innerText = "📂 Unggah Foto Surat";
+            lblFoto.innerText = "Unggah Bukti (SS Chat Izin ke Ketua)";
+            btnFotoText.innerText = "📂 Pilih Foto SS dari Galeri";
             inputFoto.removeAttribute("capture");
             isRadiusOk = true; 
         }
 
         validateRadius();
-        checkReady();
+        checkReady(); // Ini penting agar tombol KIRIM kembali terkunci/abu-abu
     }
 
     // 4. GPS & Validasi Radius
