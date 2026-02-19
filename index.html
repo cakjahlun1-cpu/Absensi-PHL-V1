@@ -26,17 +26,22 @@
         <div class="card-content">
             <h4 class="title is-4 has-text-centered"><i class="fas fa-user-clock"></i> Absensi PHL</h4>
             
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
-    <button onclick="pilihJenis('MASUK')" id="btn-masuk" style="background-color: #4361ee; color: white; padding: 10px; border: none; border-radius: 8px; font-weight: bold;">Masuk</button>
-    <button onclick="pilihJenis('PULANG')" id="btn-pulang" style="background-color: white; color: #4361ee; border: 1px solid #4361ee; padding: 10px; border-radius: 8px; font-weight: bold;">Pulang</button>
-    <button onclick="pilihJenis('IZIN')" id="btn-izin" style="background-color: white; color: #f72585; border: 1px solid #f72585; padding: 10px; border-radius: 8px; font-weight: bold;">Izin</button>
-    <button onclick="pilihJenis('SAKIT')" id="btn-sakit" style="background-color: white; color: #f72585; border: 1px solid #f72585; padding: 10px; border-radius: 8px; font-weight: bold;">Sakit</button>
-</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 15px;">
+                <button type="button" onclick="pilihJenis('MASUK')" id="btn-masuk" style="background-color: #4361ee; color: white; padding: 10px; border: none; border-radius: 8px; font-weight: bold; font-size: 12px;">Masuk</button>
+                <button type="button" onclick="pilihJenis('PULANG')" id="btn-pulang" style="background-color: white; color: #4361ee; border: 1px solid #4361ee; padding: 10px; border-radius: 8px; font-weight: bold; font-size: 12px;">Pulang</button>
+                <button type="button" onclick="pilihJenis('TIDAK MASUK')" id="btn-tidak" style="background-color: white; color: #e63946; border: 1px solid #e63946; padding: 10px; border-radius: 8px; font-weight: bold; font-size: 11px;">Tidak Masuk</button>
+            </div>
 
-<div id="kotak-alasan" style="display: none; margin-bottom: 15px;">
-    <label style="font-weight: bold;">Alasan / Keterangan:</label>
-    <textarea id="alasan" rows="3" placeholder="Contoh: Demam tinggi / Ada acara keluarga" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 8px; margin-top: 5px;"></textarea>
-</div>
+            <div id="area-tidak-masuk" style="display: none; background-color: #f8f9fa; padding: 15px; border-radius: 10px; border: 1px solid #ddd; margin-bottom: 15px;">
+                <label style="font-weight: bold; display: block; margin-bottom: 5px;">Kategori:</label>
+                <select id="kategori_tidak_masuk" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc; margin-bottom: 10px;">
+                    <option value="SAKIT">SAKIT</option>
+                    <option value="IZIN">IZIN</option>
+                    <option value="LAINNYA">LAINNYA</option>
+                </select>
+                <label style="font-weight: bold; display: block; margin-bottom: 5px;">Alasan Detail:</label>
+                <textarea id="alasan_detail" rows="2" placeholder="Contoh: Demam tinggi / Urusan keluarga" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box;"></textarea>
+            </div>
 
             <form id="formAbsen">
                 <div class="field">
