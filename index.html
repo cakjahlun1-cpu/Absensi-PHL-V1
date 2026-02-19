@@ -141,13 +141,14 @@
     window.pilihJenis = (mode) => {
         currentMode = mode;
         
-        // Elemen-elemen
         const btnMasuk = document.getElementById('btn-masuk');
         const btnPulang = document.getElementById('btn-pulang');
         const btnTidak = document.getElementById('btn-tidak');
         const areaTidak = document.getElementById('area-tidak-masuk');
         const boxLaporan = document.getElementById('boxLaporan');
         const inputFoto = document.getElementById("cameraInput");
+        const lblFoto = document.getElementById("lblFoto");
+        const btnFotoText = document.getElementById("btnFotoText");
 
         // Reset Warna Tombol
         [btnMasuk, btnPulang, btnTidak].forEach(btn => {
@@ -156,27 +157,42 @@
             btn.style.border = (btn.id === 'btn-tidak') ? "1px solid #e63946" : "1px solid #4361ee";
         });
 
-        // Logika Tampilan Berdasarkan Pilihan
+        // LOGIKA TAB
         if (mode === 'MASUK') {
             btnMasuk.style.backgroundColor = "#4361ee";
             btnMasuk.style.color = "white";
             areaTidak.style.display = "none";
             boxLaporan.classList.add("hidden");
-            isRadiusOk = false; // Reset radius check
+            
+            // Setting Kamera: Wajib Selfie Live
+            lblFoto.innerText = "Foto Selfie (Wajib Live)";
+            btnFotoText.innerText = "📸 Buka Kamera Depan";
+            inputFoto.setAttribute("capture", "user");
+            isRadiusOk = false; 
         } 
         else if (mode === 'PULANG') {
             btnPulang.style.backgroundColor = "#4361ee";
             btnPulang.style.color = "white";
             areaTidak.style.display = "none";
-            boxLaporan.classList.remove("hidden"); // Munculkan Laporan Kerja
-            isRadiusOk = true; // Pulang tidak perlu cek radius ketat (opsional)
+            boxLaporan.classList.remove("hidden"); 
+            
+            // Setting Kamera: Bisa Galeri / Foto Kegiatan
+            lblFoto.innerText = "Foto Kegiatan (Bisa Galeri)";
+            btnFotoText.innerText = "📂 Pilih Foto / Galeri";
+            inputFoto.removeAttribute("capture");
+            isRadiusOk = true; 
         } 
         else if (mode === 'TIDAK MASUK') {
             btnTidak.style.backgroundColor = "#e63946";
             btnTidak.style.color = "white";
-            areaTidak.style.display = "block"; // Munculkan Dropdown Izin/Sakit
+            areaTidak.style.display = "block"; 
             boxLaporan.classList.add("hidden");
-            isRadiusOk = true; // Tidak masuk tidak perlu cek radius
+            
+            // Setting Kamera: Bisa Galeri (Misal Foto Surat Izin/Sakit)
+            lblFoto.innerText = "Foto Pendukung (Opsional)";
+            btnFotoText.innerText = "📂 Unggah Foto Surat";
+            inputFoto.removeAttribute("capture");
+            isRadiusOk = true; 
         }
 
         validateRadius();
