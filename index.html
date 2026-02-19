@@ -26,12 +26,17 @@
         <div class="card-content">
             <h4 class="title is-4 has-text-centered"><i class="fas fa-user-clock"></i> Absensi PHL</h4>
             
-            <div class="tabs is-centered is-toggle is-toggle-rounded is-fullwidth">
-                <ul>
-                    <li class="is-active" id="tabMasuk"><a onclick="setMode('MASUK')">Masuk</a></li>
-                    <li id="tabPulang"><a onclick="setMode('PULANG')">Pulang</a></li>
-                </ul>
-            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+    <button onclick="pilihJenis('MASUK')" id="btn-masuk" style="background-color: #4361ee; color: white; padding: 10px; border: none; border-radius: 8px; font-weight: bold;">Masuk</button>
+    <button onclick="pilihJenis('PULANG')" id="btn-pulang" style="background-color: white; color: #4361ee; border: 1px solid #4361ee; padding: 10px; border-radius: 8px; font-weight: bold;">Pulang</button>
+    <button onclick="pilihJenis('IZIN')" id="btn-izin" style="background-color: white; color: #f72585; border: 1px solid #f72585; padding: 10px; border-radius: 8px; font-weight: bold;">Izin</button>
+    <button onclick="pilihJenis('SAKIT')" id="btn-sakit" style="background-color: white; color: #f72585; border: 1px solid #f72585; padding: 10px; border-radius: 8px; font-weight: bold;">Sakit</button>
+</div>
+
+<div id="kotak-alasan" style="display: none; margin-bottom: 15px;">
+    <label style="font-weight: bold;">Alasan / Keterangan:</label>
+    <textarea id="alasan" rows="3" placeholder="Contoh: Demam tinggi / Ada acara keluarga" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 8px; margin-top: 5px;"></textarea>
+</div>
 
             <form id="formAbsen">
                 <div class="field">
