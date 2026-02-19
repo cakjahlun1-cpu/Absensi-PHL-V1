@@ -104,7 +104,7 @@
 
 <script>
     // ==========================================
-    // ⚠️ PASTE URL APPS SCRIPT ANDA DISINI
+    // ⚠️ URL APPS SCRIPT
     // ==========================================
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzqP9-UyuKW2DcApCA80wE4NJF2iOKfL96RBAsvF-yRbilce21EcqdFCN73BvplhoffDQ/exec"; 
     
@@ -114,7 +114,7 @@
     let lokasiData = [];
     let selectedLokasi = null;
     let base64Foto = "";
-    let isRadiusOk = false; // Penjaga Radius
+    let isRadiusOk = false;
 
     // 1. Inisialisasi
     window.onload = () => {
@@ -126,88 +126,92 @@
     async function fetchLokasi() {
         try {
             let res = await fetch(SCRIPT_URL);
-            if (!res.ok) throw new Error("Gagal load data");
             let data = await res.json();
             lokasiData = data;
-            
             let select = document.getElementById("lokasi");
             select.innerHTML = '<option value="" disabled selected>-- Pilih Posko/Korwil --</option>';
             data.forEach((loc, index) => {
                 let opt = document.createElement("option");
                 opt.value = index; opt.text = loc.nama; select.add(opt);
             });
-        } catch(e) { 
-            console.error(e);
-            document.getElementById("lokasi").innerHTML = '<option disabled>Error Memuat Data</option>';
-        }
+        } catch(e) { console.error(e); }
     }
 
-    // 3. Update Target Lokasi & Cek Radius
-    function updateTargetLokasi() {
-        let idx = document.getElementById("lokasi").value;
-        selectedLokasi = lokasiData[idx];
-        validateRadius(); // Cek Jarak setiap ganti lokasi
-    }
-
-    // 4. Logika Tab & Reset Foto
-    window.setMode = (mode) => {
+    // 3. FUNGSI PILIH JENIS (Perbaikan Utama)
+    window.pilihJenis = (mode) => {
         currentMode = mode;
-        let inputFoto = document.getElementById("cameraInput");
         
-        // Reset Foto
-        base64Foto = "";
-        document.getElementById("preview").src = "";
-        document.getElementById("cameraInput").value = "";
-        checkReady(); // Cek ulang tombol
+        // Elemen-elemen
+        const btnMasuk = document.getElementById('btn-masuk');
+        const btnPulang = document.getElementById('btn-pulang');
+        const btnTidak = document.getElementById('btn-tidak');
+        const areaTidak = document.getElementById('area-tidak-masuk');
+        const boxLaporan = document.getElementById('boxLaporan');
+        const inputFoto = document.getElementById("cameraInput");
 
+        // Reset Warna Tombol
+        [btnMasuk, btnPulang, btnTidak].forEach(btn => {
+            btn.style.backgroundColor = "white";
+            btn.style.color = (btn.id === 'btn-tidak') ? "#e63946" : "#4361ee";
+            btn.style.border = (btn.id === 'btn-tidak') ? "1px solid #e63946" : "1px solid #4361ee";
+        });
+
+        // Logika Tampilan Berdasarkan Pilihan
         if (mode === 'MASUK') {
-            document.getElementById("tabMasuk").classList.add("is-active");
-            document.getElementById("tabPulang").classList.remove("is-active");
-            document.getElementById("boxLaporan").classList.add("hidden");
-            document.getElementById("lblFoto").innerText = "Foto Selfie (Wajib Live)";
-            document.getElementById("btnFotoText").innerText = "📸 Buka Kamera Depan";
-            inputFoto.setAttribute("capture", "user");
-        } else {
-            document.getElementById("tabPulang").classList.add("is-active");
-            document.getElementById("tabMasuk").classList.remove("is-active");
-            document.getElementById("boxLaporan").classList.remove("hidden");
-            document.getElementById("lblFoto").innerText = "Foto Kegiatan (Bisa Galeri)";
-            document.getElementById("btnFotoText").innerText = "📂 Pilih Foto / Galeri";
-            inputFoto.removeAttribute("capture");
+            btnMasuk.style.backgroundColor = "#4361ee";
+            btnMasuk.style.color = "white";
+            areaTidak.style.display = "none";
+            boxLaporan.classList.add("hidden");
+            isRadiusOk = false; // Reset radius check
+        } 
+        else if (mode === 'PULANG') {
+            btnPulang.style.backgroundColor = "#4361ee";
+            btnPulang.style.color = "white";
+            areaTidak.style.display = "none";
+            boxLaporan.classList.remove("hidden"); // Munculkan Laporan Kerja
+            isRadiusOk = true; // Pulang tidak perlu cek radius ketat (opsional)
+        } 
+        else if (mode === 'TIDAK MASUK') {
+            btnTidak.style.backgroundColor = "#e63946";
+            btnTidak.style.color = "white";
+            areaTidak.style.display = "block"; // Munculkan Dropdown Izin/Sakit
+            boxLaporan.classList.add("hidden");
+            isRadiusOk = true; // Tidak masuk tidak perlu cek radius
         }
+
+        validateRadius();
+        checkReady();
     }
 
-    // 5. GPS & Validasi Radius
+    // 4. GPS & Validasi Radius
     function initGPS() {
         if (navigator.geolocation) {
-            navigator.geolocation.watchPosition( // Pakai watchPosition agar realtime
+            navigator.geolocation.watchPosition(
                 (pos) => {
                     userLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
                     document.getElementById("gpsStatus").className = "notification is-success is-small";
-                    document.getElementById("gpsStatus").innerHTML = `<i class="fas fa-check-circle"></i> Lokasi Terkunci: ${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`;
-                    validateRadius(); // Cek Jarak setiap GPS update
+                    document.getElementById("gpsStatus").innerHTML = `<i class="fas fa-check-circle"></i> Lokasi Terkunci`;
+                    validateRadius();
                 },
-                (err) => {
-                    document.getElementById("gpsStatus").className = "notification is-danger is-small";
-                    document.getElementById("gpsStatus").innerText = "Gagal ambil GPS. Wajib izinkan lokasi!";
-                    isRadiusOk = false;
-                    checkReady();
-                },
+                (err) => { isRadiusOk = false; checkReady(); },
                 { enableHighAccuracy: true, maximumAge: 0 }
             );
-        } else { alert("Browser tidak support GPS."); }
+        }
     }
 
-    // --- FUNGSI BARU: HITUNG JARAK (HAVERSINE) ---
     function validateRadius() {
-        if (!selectedLokasi || userLoc.lat === 0) return;
+        // Jika statusnya TIDAK MASUK, kita bebaskan radius
+        if (currentMode === 'TIDAK MASUK') {
+            isRadiusOk = true;
+            document.getElementById("radiusInfo").classList.add("hidden");
+            return;
+        }
 
-        let R = 6371000; // Meter
+        if (!selectedLokasi || userLoc.lat === 0) return;
+        let R = 6371000;
         let dLat = (userLoc.lat - selectedLokasi.lat) * Math.PI / 180;
         let dLon = (userLoc.lng - selectedLokasi.lng) * Math.PI / 180;
-        let a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                Math.cos(selectedLokasi.lat * Math.PI / 180) * Math.cos(userLoc.lat * Math.PI / 180) *
-                Math.sin(dLon/2) * Math.sin(dLon/2);
+        let a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(selectedLokasi.lat * Math.PI/180) * Math.cos(userLoc.lat * Math.PI/180) * Math.sin(dLon/2) * Math.sin(dLon/2);
         let c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
         let distance = Math.floor(R * c);
 
@@ -215,20 +219,23 @@
         box.classList.remove("hidden");
 
         if (distance <= selectedLokasi.radius) {
-            // DALAM JANGKAUAN
             isRadiusOk = true;
             box.className = "jarak-box jarak-aman";
-            box.innerHTML = `<i class="fas fa-check"></i> Jarak Aman: ${distance}m (Max: ${selectedLokasi.radius}m)`;
+            box.innerHTML = `Jarak Aman: ${distance}m`;
         } else {
-            // DILUAR JANGKAUAN
             isRadiusOk = false;
             box.className = "jarak-box jarak-bahaya";
-            box.innerHTML = `<i class="fas fa-times-circle"></i> ANDA TERLALU JAUH!<br>Jarak: ${distance}m (Max: ${selectedLokasi.radius}m)<br>Silakan merapat ke titik lokasi.`;
+            box.innerHTML = `Terlalu Jauh! (${distance}m)`;
         }
         checkReady();
     }
 
-    // 6. Proses Foto
+    function updateTargetLokasi() {
+        let idx = document.getElementById("lokasi").value;
+        selectedLokasi = lokasiData[idx];
+        validateRadius();
+    }
+
     window.processImage = () => {
         let file = document.getElementById("cameraInput").files[0];
         if (!file) return;
@@ -238,15 +245,8 @@
             img.onload = () => {
                 let canvas = document.getElementById("canvas");
                 let ctx = canvas.getContext("2d");
-                let scale = 600 / img.width;
-                canvas.width = 600; canvas.height = img.height * scale;
+                canvas.width = 600; canvas.height = img.height * (600/img.width);
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                
-                let d = new Date();
-                let time = d.getDate() + "/" + (d.getMonth()+1) + " " + d.getHours() + ":" + d.getMinutes();
-                ctx.font = "bold 24px Arial"; ctx.fillStyle = "yellow"; ctx.strokeStyle = "black"; ctx.lineWidth = 3;
-                ctx.strokeText(time, 20, canvas.height - 30); ctx.fillText(time, 20, canvas.height - 30);
-
                 base64Foto = canvas.toDataURL("image/jpeg", 0.7);
                 document.getElementById("preview").src = base64Foto;
                 checkReady();
@@ -256,46 +256,41 @@
         reader.readAsDataURL(file);
     }
 
-    // 7. Cek Tombol (WAJIB RADIUS OK)
     function checkReady() {
         let btn = document.getElementById("btnKirim");
-        // Tombol hanya nyala jika: GPS OK + Foto Ada + Radius Aman (isRadiusOk)
         if (userLoc.lat !== 0 && base64Foto !== "" && isRadiusOk) {
             btn.disabled = false;
             btn.innerText = "KIRIM DATA";
-            btn.classList.remove("is-danger");
-            btn.classList.add("is-primary");
+            btn.className = "button is-primary is-fullwidth is-medium";
         } else {
             btn.disabled = true;
-            if (!isRadiusOk && selectedLokasi) {
-                btn.innerText = "❌ DILUAR JANGKAUAN";
-                btn.classList.remove("is-primary");
-                btn.classList.add("is-danger");
-            } else {
-                btn.innerText = "Lengkapi Data & Foto";
-            }
+            btn.innerText = !isRadiusOk ? "❌ DILUAR RADIUS" : "Lengkapi Data & Foto";
+            btn.className = "button is-danger is-fullwidth is-medium";
         }
     }
 
-    // 8. Submit Data
     document.getElementById("formAbsen").addEventListener("submit", (e) => {
         e.preventDefault();
-        if (!isRadiusOk) return alert("Anda berada diluar jangkauan absensi!");
-        
         let btn = document.getElementById("btnKirim");
         btn.classList.add("is-loading");
+
+        // Logika pengumpulan data keterangan
+        let ket = "-";
+        if(currentMode === "TIDAK MASUK") {
+            ket = document.getElementById("kategori_tidak_masuk").value + ": " + document.getElementById("alasan_detail").value;
+        } else {
+            ket = document.getElementById("kendala").value;
+        }
         
         let payload = {
             jenis: currentMode,
             nama: document.getElementById("nama").value,
             lokasiKerja: selectedLokasi.nama,
-            targetLat: selectedLokasi.lat,
-            targetLng: selectedLokasi.lng,
+            targetLat: selectedLokasi.lat, targetLng: selectedLokasi.lng,
             maxRadius: selectedLokasi.radius,
-            userLat: userLoc.lat,
-            userLng: userLoc.lng,
+            userLat: userLoc.lat, userLng: userLoc.lng,
             hasil: document.getElementById("hasil").value,
-            kendala: document.getElementById("kendala").value,
+            kendala: ket,
             lanjut: document.getElementById("lanjut").value,
             foto: base64Foto
         };
@@ -303,13 +298,8 @@
         fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) })
         .then(res => res.json())
         .then(res => { 
-            if(res.status === "SUCCESS") {
-                alert("✅ Sukses! \nJarak: " + res.jarak + "m");
-                window.location.reload(); 
-            } else {
-                alert("Gagal: " + res.message);
-                btn.classList.remove("is-loading");
-            }
+            alert("✅ Berhasil dikirim!");
+            window.location.reload(); 
         })
         .catch(err => { alert("Error koneksi"); btn.classList.remove("is-loading"); });
     });
