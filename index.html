@@ -11,9 +11,6 @@
         .card { border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         .hidden { display: none !important; }
         #preview { width: 100%; border-radius: 8px; margin-top: 10px; border: 2px dashed #ccc; min-height: 150px; object-fit: contain; background: #fafafa; }
-        .tabs li.is-active a { background-color: #3298dc; color: white; border-bottom-color: #3298dc; }
-        
-        /* Style untuk Pesan Jarak */
         .jarak-box { margin-bottom: 15px; padding: 10px; border-radius: 5px; font-weight: bold; font-size: 0.9em; text-align: center; }
         .jarak-aman { background-color: #effaf3; color: #257942; border: 1px solid #48c774; }
         .jarak-bahaya { background-color: #feecf0; color: #cc0f35; border: 1px solid #f14668; }
@@ -40,14 +37,14 @@
                     <option value="LAINNYA">LAINNYA</option>
                 </select>
                 <label style="font-weight: bold; display: block; margin-bottom: 5px;">Alasan Detail:</label>
-                <textarea id="alasan_detail" rows="2" placeholder="Contoh: Demam tinggi / Urusan keluarga" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box;"></textarea>
+                <textarea id="alasan_detail" rows="2" placeholder="Contoh: Demam tinggi" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box;"></textarea>
             </div>
 
             <form id="formAbsen">
                 <div class="field">
                     <label class="label">Pilih Posko/Korwil</label>
                     <div class="control has-icons-left">
-                        <div class="select is-fullwidth" id="divSelect">
+                        <div class="select is-fullwidth">
                             <select id="lokasi" required onchange="updateTargetLokasi()">
                                 <option value="" disabled selected>Sedang memuat data...</option>
                             </select>
@@ -56,15 +53,18 @@
                     </div>
                 </div>
 
-                <div id="radiusInfo" class="hidden">
-                    </div>
+                <div id="radiusInfo" class="hidden"></div>
 
                 <div class="field">
-                    <label class="label">Nama Lengkap</label>
+                    <label class="label">Nama Lengkap (Ketik & Pilih)</label>
                     <div class="control has-icons-left">
-                        <input class="input" type="text" id="nama" placeholder="Nama Anda" required>
+                        <input class="input" type="text" id="nama" list="daftarNama" placeholder="Ketik nama Anda..." required autocomplete="off">
+                        <datalist id="daftarNama">
+                            <option value="Memuat nama...">
+                        </datalist>
                         <span class="icon is-small is-left"><i class="fas fa-user"></i></span>
                     </div>
+                    <p class="help is-info">Ketik 2-3 huruf nama Anda lalu pilih dari daftar.</p>
                 </div>
 
                 <div class="notification is-light is-info is-small" id="gpsStatus" style="padding: 5px 10px;">
@@ -103,48 +103,54 @@
 </div>
 
 <script>
-    // ==========================================
-    // ⚠️ URL APPS SCRIPT
-    // ==========================================
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzqP9-UyuKW2DcApCA80wE4NJF2iOKfL96RBAsvF-yRbilce21EcqdFCN73BvplhoffDQ/exec"; 
     
-    // Variabel Global
     let currentMode = "MASUK";
     let userLoc = { lat: 0, lng: 0 };
     let lokasiData = [];
+    let personilData = []; // Untuk validasi nama
     let selectedLokasi = null;
     let base64Foto = "";
     let isRadiusOk = false;
 
-    // 1. Inisialisasi
     window.onload = () => {
-        fetchLokasi();
+        fetchDataSistem();
         initGPS();
     };
 
-    // 2. Ambil Data Lokasi
-    async function fetchLokasi() {
+    // AMBIL DATA LOKASI & PERSONIL SEKALIGUS
+    async function fetchDataSistem() {
         try {
             let res = await fetch(SCRIPT_URL);
             let data = await res.json();
-            lokasiData = data;
+            
+            // 1. Proses Lokasi
+            lokasiData = data.lokasi;
             let select = document.getElementById("lokasi");
             select.innerHTML = '<option value="" disabled selected>-- Pilih Posko/Korwil --</option>';
-            data.forEach((loc, index) => {
+            lokasiData.forEach((loc, index) => {
                 let opt = document.createElement("option");
                 opt.value = index; opt.text = loc.nama; select.add(opt);
             });
-        } catch(e) { console.error(e); }
+
+            // 2. Proses Nama Personil (Autocomplete)
+            personilData = data.personil;
+            let dataList = document.getElementById("daftarNama");
+            dataList.innerHTML = ""; 
+            personilData.forEach(nama => {
+                let option = document.createElement("option");
+                option.value = nama;
+                dataList.appendChild(option);
+            });
+        } catch(e) { console.error("Gagal ambil data:", e); }
     }
 
-    // 3. FUNGSI PILIH JENIS (Perbaikan Utama)
+    // FUNGSI PILIH JENIS
     window.pilihJenis = (mode) => {
         currentMode = mode;
-        
-        // 1. RESET DATA FOTO & PREVIEW SETIAP PINDAH TAB
         base64Foto = ""; 
-        document.getElementById("cameraInput").value = ""; // Reset input file
-        document.getElementById("preview").src = ""; // Hilangkan gambar di layar
+        document.getElementById("cameraInput").value = "";
+        document.getElementById("preview").src = "";
         
         const btnMasuk = document.getElementById('btn-masuk');
         const btnPulang = document.getElementById('btn-pulang');
@@ -153,55 +159,35 @@
         const boxLaporan = document.getElementById('boxLaporan');
         const inputFoto = document.getElementById("cameraInput");
         const lblFoto = document.getElementById("lblFoto");
-        const btnFotoText = document.getElementById("btnFotoText");
 
-        // Reset Warna Tombol
         [btnMasuk, btnPulang, btnTidak].forEach(btn => {
             btn.style.backgroundColor = "white";
             btn.style.color = (btn.id === 'btn-tidak') ? "#e63946" : "#4361ee";
-            btn.style.border = (btn.id === 'btn-tidak') ? "1px solid #e63946" : "1px solid #4361ee";
         });
 
-        // LOGIKA TAMPILAN
         if (mode === 'MASUK') {
-            btnMasuk.style.backgroundColor = "#4361ee";
-            btnMasuk.style.color = "white";
-            areaTidak.style.display = "none";
-            boxLaporan.classList.add("hidden");
-            
+            btnMasuk.style.backgroundColor = "#4361ee"; btnMasuk.style.color = "white";
+            areaTidak.style.display = "none"; boxLaporan.classList.add("hidden");
             lblFoto.innerText = "Foto Selfie (Wajib Live)";
-            btnFotoText.innerText = "📸 Buka Kamera Depan";
             inputFoto.setAttribute("capture", "user");
             isRadiusOk = false; 
-        } 
-        else if (mode === 'PULANG') {
-            btnPulang.style.backgroundColor = "#4361ee";
-            btnPulang.style.color = "white";
-            areaTidak.style.display = "none";
-            boxLaporan.classList.remove("hidden"); 
-            
-            lblFoto.innerText = "Foto Kegiatan (Bisa Galeri)";
-            btnFotoText.innerText = "📂 Pilih Foto / Galeri";
+        } else if (mode === 'PULANG') {
+            btnPulang.style.backgroundColor = "#4361ee"; btnPulang.style.color = "white";
+            areaTidak.style.display = "none"; boxLaporan.classList.remove("hidden");
+            lblFoto.innerText = "Foto Kegiatan (Galeri OK)";
             inputFoto.removeAttribute("capture");
             isRadiusOk = true; 
-        } 
-        else if (mode === 'TIDAK MASUK') {
-            btnTidak.style.backgroundColor = "#e63946";
-            btnTidak.style.color = "white";
-            areaTidak.style.display = "block"; 
-            boxLaporan.classList.add("hidden");
-            
-            lblFoto.innerText = "Unggah Bukti (SS Chat Izin ke Ketua)";
-            btnFotoText.innerText = "📂 Pilih Foto SS dari Galeri";
+        } else if (mode === 'TIDAK MASUK') {
+            btnTidak.style.backgroundColor = "#e63946"; btnTidak.style.color = "white";
+            areaTidak.style.display = "block"; boxLaporan.classList.add("hidden");
+            lblFoto.innerText = "Bukti Izin (SS Chat)";
             inputFoto.removeAttribute("capture");
             isRadiusOk = true; 
         }
-
         validateRadius();
-        checkReady(); // Ini penting agar tombol KIRIM kembali terkunci/abu-abu
-    }
+        checkReady();
+    };
 
-    // 4. GPS & Validasi Radius
     function initGPS() {
         if (navigator.geolocation) {
             navigator.geolocation.watchPosition(
@@ -218,14 +204,9 @@
     }
 
     function validateRadius() {
-        // Jika statusnya TIDAK MASUK, kita bebaskan radius
-        if (currentMode === 'TIDAK MASUK') {
-            isRadiusOk = true;
-            document.getElementById("radiusInfo").classList.add("hidden");
-            return;
-        }
-
+        if (currentMode === 'TIDAK MASUK') { isRadiusOk = true; document.getElementById("radiusInfo").classList.add("hidden"); return; }
         if (!selectedLokasi || userLoc.lat === 0) return;
+        
         let R = 6371000;
         let dLat = (userLoc.lat - selectedLokasi.lat) * Math.PI / 180;
         let dLon = (userLoc.lng - selectedLokasi.lng) * Math.PI / 180;
@@ -235,15 +216,10 @@
 
         let box = document.getElementById("radiusInfo");
         box.classList.remove("hidden");
-
         if (distance <= selectedLokasi.radius) {
-            isRadiusOk = true;
-            box.className = "jarak-box jarak-aman";
-            box.innerHTML = `Jarak Aman: ${distance}m`;
+            isRadiusOk = true; box.className = "jarak-box jarak-aman"; box.innerHTML = `Jarak Aman: ${distance}m`;
         } else {
-            isRadiusOk = false;
-            box.className = "jarak-box jarak-bahaya";
-            box.innerHTML = `Terlalu Jauh! (${distance}m)`;
+            isRadiusOk = false; box.className = "jarak-box jarak-bahaya"; box.innerHTML = `Terlalu Jauh! (${distance}m)`;
         }
         checkReady();
     }
@@ -272,14 +248,12 @@
             img.src = e.target.result;
         };
         reader.readAsDataURL(file);
-    }
+    };
 
     function checkReady() {
         let btn = document.getElementById("btnKirim");
         if (userLoc.lat !== 0 && base64Foto !== "" && isRadiusOk) {
-            btn.disabled = false;
-            btn.innerText = "KIRIM DATA";
-            btn.className = "button is-primary is-fullwidth is-medium";
+            btn.disabled = false; btn.innerText = "KIRIM DATA"; btn.className = "button is-primary is-fullwidth is-medium";
         } else {
             btn.disabled = true;
             btn.innerText = !isRadiusOk ? "❌ DILUAR RADIUS" : "Lengkapi Data & Foto";
@@ -289,23 +263,29 @@
 
     document.getElementById("formAbsen").addEventListener("submit", (e) => {
         e.preventDefault();
+        
+        // VALIDASI NAMA HARUS SESUAI DAFTAR
+        let inputNama = document.getElementById("nama").value.toUpperCase();
+        let valid = personilData.some(n => n.toUpperCase() === inputNama);
+        if (!valid) {
+            alert("❌ NAMA TIDAK TERDAFTAR!\nSilakan ketik nama dengan benar dan pilih dari saran yang muncul.");
+            return;
+        }
+
         let btn = document.getElementById("btnKirim");
         btn.classList.add("is-loading");
 
-        // Logika pengumpulan data keterangan
-        let ket = "-";
-        if(currentMode === "TIDAK MASUK") {
-            ket = document.getElementById("kategori_tidak_masuk").value + ": " + document.getElementById("alasan_detail").value;
-        } else {
-            ket = document.getElementById("kendala").value;
-        }
-        
+        let ket = (currentMode === "TIDAK MASUK") ? 
+                  document.getElementById("kategori_tidak_masuk").value + ": " + document.getElementById("alasan_detail").value : 
+                  document.getElementById("kendala").value;
+
         let payload = {
             jenis: currentMode,
-            nama: document.getElementById("nama").value,
-            lokasiKerja: selectedLokasi.nama,
-            targetLat: selectedLokasi.lat, targetLng: selectedLokasi.lng,
-            maxRadius: selectedLokasi.radius,
+            nama: inputNama,
+            lokasiKerja: selectedLokasi ? selectedLokasi.nama : "TIDAK MASUK",
+            targetLat: selectedLokasi ? selectedLokasi.lat : 0,
+            targetLng: selectedLokasi ? selectedLokasi.lng : 0,
+            maxRadius: selectedLokasi ? selectedLokasi.radius : 99999,
             userLat: userLoc.lat, userLng: userLoc.lng,
             hasil: document.getElementById("hasil").value,
             kendala: ket,
@@ -316,7 +296,7 @@
         fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) })
         .then(res => res.json())
         .then(res => { 
-            alert("✅ Berhasil dikirim!");
+            alert("✅ Absensi Berhasil Terkirim!");
             window.location.reload(); 
         })
         .catch(err => { alert("Error koneksi"); btn.classList.remove("is-loading"); });
