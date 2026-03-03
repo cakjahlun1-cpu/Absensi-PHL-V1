@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Absensi PHL Terpadu v2</title>
+    <title>Absensi PHL Terpadu v2.1</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.9.3/css/bulma.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
@@ -38,7 +38,7 @@
                     <option value="LAINNYA">LAINNYA</option>
                 </select>
                 <label style="font-weight: bold; display: block; margin-bottom: 5px;">Alasan Detail:</label>
-                <textarea id="alasan_detail" rows="2" class="textarea is-small" placeholder="Contoh: Demam tinggi"></textarea>
+                <textarea id="alasan_detail" rows="2" class="textarea is-small" placeholder="Contoh: Sakit gigi atau keperluan keluarga"></textarea>
             </div>
 
             <form id="formAbsen">
@@ -47,7 +47,7 @@
                     <div class="control has-icons-left">
                         <div class="select is-fullwidth">
                             <select id="lokasi" required onchange="updateTargetLokasi()">
-                                <option value="" disabled selected>Sedang memuat data lokasi...</option>
+                                <option value="" disabled selected>Memuat data lokasi...</option>
                             </select>
                         </div>
                         <span class="icon is-small is-left"><i class="fas fa-map-marker-alt"></i></span>
@@ -66,7 +66,7 @@
                 </div>
 
                 <div class="notification is-light is-info is-small" id="gpsStatus" style="padding: 5px 10px;">
-                    <i class="fas fa-spinner fa-pulse"></i> Mencari sinyal GPS...
+                    <i class="fas fa-spinner fa-pulse"></i> Sinyal GPS Aktif
                 </div>
 
                 <div id="boxLaporan" class="hidden" style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #dbdbdb;">
@@ -74,20 +74,36 @@
                     <div id="container-tugas">
                         <div class="item-tugas">
                             <label class="checkbox" style="flex: 1;"><input type="checkbox" name="tugas" value="KETAPANG"> KETAPANG</label>
-                            <select name="status_tugas" class="select is-small"><option value="DONE">DONE</option><option value="PROGRESS">PROGRESS</option><option value="PENDING">PENDING</option></select>
+                            <select name="status_tugas" class="select is-small"><option value="PROGRESS">PROGRESS</option><option value="PENDING">PENDING</option><option value="DONE">DONE</option></select>
                         </div>
                         <div class="item-tugas">
                             <label class="checkbox" style="flex: 1;"><input type="checkbox" name="tugas" value="PATROLI"> PATROLI</label>
-                            <select name="status_tugas" class="select is-small"><option value="DONE">DONE</option><option value="PROGRESS">PROGRESS</option><option value="PENDING">PENDING</option></select>
+                            <select name="status_tugas" class="select is-small"><option value="PROGRESS">PROGRESS</option><option value="PENDING">PENDING</option><option value="DONE">DONE</option></select>
                         </div>
                         <div class="item-tugas">
                             <label class="checkbox" style="flex: 1;"><input type="checkbox" name="tugas" value="KOMSOS"> KOMSOS</label>
-                            <select name="status_tugas" class="select is-small"><option value="DONE">DONE</option><option value="PROGRESS">PROGRESS</option><option value="PENDING">PENDING</option></select>
+                            <select name="status_tugas" class="select is-small"><option value="PROGRESS">PROGRESS</option><option value="PENDING">PENDING</option><option value="DONE">DONE</option></select>
+                        </div>
+                        <div class="item-tugas">
+                            <label class="checkbox" style="flex: 1;"><input type="checkbox" name="tugas" value="ADMINISTRASI"> ADMINISTRASI</label>
+                            <select name="status_tugas" class="select is-small"><option value="PROGRESS">PROGRESS</option><option value="PENDING">PENDING</option><option value="DONE">DONE</option></select>
+                        </div>
+                        <div class="item-tugas">
+                            <label class="checkbox" style="flex: 1;"><input type="checkbox" name="tugas" value="ASSET"> PERAWATAN ASSET</label>
+                            <select name="status_tugas" class="select is-small"><option value="PROGRESS">PROGRESS</option><option value="PENDING">PENDING</option><option value="DONE">DONE</option></select>
+                        </div>
+                        <div class="item-tugas">
+                            <label class="checkbox" style="flex: 1;"><input type="checkbox" name="tugas" value="ENGINEERING"> ENGINEERING</label>
+                            <select name="status_tugas" class="select is-small"><option value="PROGRESS">PROGRESS</option><option value="PENDING">PENDING</option><option value="DONE">DONE</option></select>
+                        </div>
+                        <div class="item-tugas">
+                            <label class="checkbox" style="flex: 1;"><input type="checkbox" name="tugas" value="GIAT TAMBAHAN"> GIAT TAMBAHAN</label>
+                            <select name="status_tugas" class="select is-small"><option value="PROGRESS">PROGRESS</option><option value="PENDING">PENDING</option><option value="DONE">DONE</option></select>
                         </div>
                     </div>
                     <div class="field mt-3"><label class="label is-small">Detail Rutin</label><textarea id="detail_rutin" class="textarea is-small" rows="2"></textarea></div>
                     <div class="field"><label class="label is-small">Pekerjaan Tambahan</label><textarea id="detail_tambahan" class="textarea is-small" rows="2"></textarea></div>
-                    <div class="field"><label class="label is-small">Kendala Lapangan/Alat</label><textarea id="kendala" class="textarea is-small" rows="2" placeholder="Isi jika ada kendala atau alat rusak"></textarea></div>
+                    <div class="field"><label class="label is-small">Kendala Lapangan/Alat</label><textarea id="kendala_lapangan" class="textarea is-small" rows="2" placeholder="Sebutkan hambatan atau alat rusak"></textarea></div>
                 </div>
 
                 <div class="field">
@@ -128,7 +144,6 @@
         try {
             let res = await fetch(SCRIPT_URL);
             let data = await res.json();
-            
             lokasiData = data.lokasi;
             let select = document.getElementById("lokasi");
             select.innerHTML = '<option value="" disabled selected>-- Pilih Posko/Korwil --</option>';
@@ -136,10 +151,8 @@
                 let opt = document.createElement("option");
                 opt.value = index; opt.text = loc.nama; select.add(opt);
             });
-
             personilData = data.personil;
             let dataList = document.getElementById("daftarNama");
-            dataList.innerHTML = "";
             personilData.forEach(nama => {
                 let option = document.createElement("option");
                 option.value = nama; dataList.appendChild(option);
@@ -151,7 +164,6 @@
         currentMode = mode;
         const areaTidak = document.getElementById('area-tidak-masuk');
         const boxLaporan = document.getElementById('boxLaporan');
-        const fieldLokasi = document.getElementById('fieldLokasi');
         const inputFoto = document.getElementById("cameraInput");
 
         document.querySelectorAll('button[id^="btn-"]').forEach(btn => {
@@ -166,23 +178,17 @@
         }
 
         if (mode === 'MASUK') {
-            areaTidak.classList.add("hidden"); 
-            boxLaporan.classList.add("hidden");
-            fieldLokasi.classList.remove("hidden");
+            areaTidak.classList.add("hidden"); boxLaporan.classList.add("hidden");
             inputFoto.setAttribute("capture", "user");
             isRadiusOk = false;
         } else if (mode === 'PULANG') {
-            areaTidak.classList.add("hidden"); 
-            boxLaporan.classList.remove("hidden");
-            fieldLokasi.classList.remove("hidden");
+            areaTidak.classList.add("hidden"); boxLaporan.classList.remove("hidden");
             inputFoto.removeAttribute("capture");
             isRadiusOk = true; 
         } else {
-            areaTidak.classList.remove("hidden"); 
-            boxLaporan.classList.add("hidden");
-            fieldLokasi.classList.add("hidden");
+            areaTidak.classList.remove("hidden"); boxLaporan.classList.add("hidden");
             inputFoto.removeAttribute("capture");
-            isRadiusOk = true;
+            isRadiusOk = true; // Bebas Radius untuk Tidak Masuk
         }
         validateRadius(); checkReady();
     };
@@ -191,8 +197,6 @@
         if (navigator.geolocation) {
             navigator.geolocation.watchPosition((pos) => {
                 userLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-                document.getElementById("gpsStatus").className = "notification is-success is-small";
-                document.getElementById("gpsStatus").innerHTML = `<i class="fas fa-check-circle"></i> Lokasi Terkunci`;
                 validateRadius();
             }, null, { enableHighAccuracy: true });
         }
@@ -265,7 +269,7 @@
 
         let catatan = (currentMode === "TIDAK MASUK") ? 
             document.getElementById("kategori_tidak_masuk").value + ": " + document.getElementById("alasan_detail").value : 
-            document.getElementById("kendala").value;
+            document.getElementById("kendala_lapangan").value;
 
         let payload = {
             jenis: currentMode,
