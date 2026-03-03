@@ -47,7 +47,7 @@
                     <div class="control has-icons-left">
                         <div class="select is-fullwidth">
                             <select id="lokasi" required onchange="updateTargetLokasi()">
-                                <option value="" disabled selected>Memuat data lokasi...</option>
+                                <option value="" disabled selected>Sedang memuat data...</option>
                             </select>
                         </div>
                         <span class="icon is-small is-left"><i class="fas fa-map-marker-alt"></i></span>
@@ -70,7 +70,7 @@
                 </div>
 
                 <div id="boxLaporan" class="hidden" style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #dbdbdb;">
-                    <h6 class="title is-6 mb-2">📝 Laporan Kerja & Status</h6>
+                    <h6 class="title is-6 mb-2">📝 Progress Kerja & Status</h6>
                     <div id="container-tugas">
                         <div class="item-tugas">
                             <label class="checkbox" style="flex: 1;"><input type="checkbox" name="tugas" value="KETAPANG"> KETAPANG</label>
@@ -87,17 +87,17 @@
                     </div>
                     <div class="field mt-3"><label class="label is-small">Detail Rutin</label><textarea id="detail_rutin" class="textarea is-small" rows="2"></textarea></div>
                     <div class="field"><label class="label is-small">Pekerjaan Tambahan</label><textarea id="detail_tambahan" class="textarea is-small" rows="2"></textarea></div>
-                    <div class="field"><label class="label is-small">Kendala Lapangan/Alat</label><textarea id="kendala" class="textarea is-small" rows="2" placeholder="Isi jika ada alat rusak atau hambatan"></textarea></div>
+                    <div class="field"><label class="label is-small">Kendala Lapangan/Alat</label><textarea id="kendala" class="textarea is-small" rows="2" placeholder="Isi jika ada kendala/alat rusak"></textarea></div>
                 </div>
 
-                <div class="field" style="margin-top: 10px;">
+                <div class="field">
                     <label class="label" id="lblFoto">Foto Selfie (Wajib)</label>
                     <div class="file is-info is-fullwidth has-name">
                         <label class="file-label">
                             <input class="file-input" type="file" id="cameraInput" accept="image/*" capture="user" onchange="processImage()">
                             <span class="file-cta">
                                 <span class="file-icon"><i class="fas fa-camera"></i></span>
-                                <span class="file-label" id="btnFotoText">Buka Kamera</span>
+                                <span class="file-label">Buka Kamera</span>
                             </span>
                         </label>
                     </div>
@@ -124,11 +124,13 @@
 
     window.onload = () => { fetchDataSistem(); initGPS(); };
 
+    // FUNGSI MENGAMBIL DATA DARI SPREADSHEET (POSKO & NAMA)
     async function fetchDataSistem() {
         try {
             let res = await fetch(SCRIPT_URL);
             let data = await res.json();
             
+            // Render Lokasi
             lokasiData = data.lokasi;
             let select = document.getElementById("lokasi");
             select.innerHTML = '<option value="" disabled selected>-- Pilih Posko/Korwil --</option>';
@@ -137,45 +139,51 @@
                 opt.value = index; opt.text = loc.nama; select.add(opt);
             });
 
+            // Render Nama Autocomplete
             personilData = data.personil;
             let dataList = document.getElementById("daftarNama");
+            dataList.innerHTML = "";
             personilData.forEach(nama => {
                 let option = document.createElement("option");
                 option.value = nama; dataList.appendChild(option);
             });
-        } catch(e) { console.error("Gagal ambil data", e); }
+        } catch(e) { console.error("Gagal sinkronisasi Spreadsheet", e); }
     }
 
     window.pilihJenis = (mode) => {
         currentMode = mode;
-        const btnMasuk = document.getElementById('btn-masuk');
-        const btnPulang = document.getElementById('btn-pulang');
-        const btnTidak = document.getElementById('btn-tidak');
         const areaTidak = document.getElementById('area-tidak-masuk');
         const boxLaporan = document.getElementById('boxLaporan');
         const fieldLokasi = document.getElementById('fieldLokasi');
         const inputFoto = document.getElementById("cameraInput");
 
-        [btnMasuk, btnPulang, btnTidak].forEach(btn => {
+        // Reset Warna Button
+        document.querySelectorAll('button[id^="btn-"]').forEach(btn => {
             btn.style.backgroundColor = "white";
             btn.style.color = (btn.id === 'btn-tidak') ? "#e63946" : "#4361ee";
         });
 
+        const activeBtn = document.getElementById('btn-' + mode.toLowerCase().replace(' ', ''));
+        if(activeBtn) {
+            activeBtn.style.backgroundColor = (mode === 'TIDAK MASUK') ? "#e63946" : "#4361ee";
+            activeBtn.style.color = "white";
+        }
+
         if (mode === 'MASUK') {
-            btnMasuk.style.backgroundColor = "#4361ee"; btnMasuk.style.color = "white";
-            areaTidak.classList.add("hidden"); boxLaporan.classList.add("hidden");
+            areaTidak.classList.add("hidden"); 
+            boxLaporan.classList.add("hidden");
             fieldLokasi.classList.remove("hidden");
             inputFoto.setAttribute("capture", "user");
             isRadiusOk = false;
         } else if (mode === 'PULANG') {
-            btnPulang.style.backgroundColor = "#4361ee"; btnPulang.style.color = "white";
-            areaTidak.classList.add("hidden"); boxLaporan.classList.remove("hidden");
+            areaTidak.classList.add("hidden"); 
+            boxLaporan.classList.remove("hidden");
             fieldLokasi.classList.remove("hidden");
             inputFoto.removeAttribute("capture");
             isRadiusOk = true; 
         } else {
-            btnTidak.style.backgroundColor = "#e63946"; btnTidak.style.color = "white";
-            areaTidak.classList.remove("hidden"); boxLaporan.classList.add("hidden");
+            areaTidak.classList.remove("hidden"); 
+            boxLaporan.classList.add("hidden");
             fieldLokasi.classList.add("hidden");
             inputFoto.removeAttribute("capture");
             isRadiusOk = true;
@@ -247,7 +255,7 @@
     document.getElementById("formAbsen").addEventListener("submit", (e) => {
         e.preventDefault();
         let inputNama = document.getElementById("nama").value.toUpperCase();
-        if (!personilData.includes(inputNama)) return alert("NAMA TIDAK TERDAFTAR!");
+        if (!personilData.some(n => n.toUpperCase() === inputNama)) return alert("NAMA TIDAK TERDAFTAR!");
 
         let btn = document.getElementById("btnKirim");
         btn.classList.add("is-loading");
@@ -269,15 +277,15 @@
             lokasiKerja: selectedLokasi ? selectedLokasi.nama : "TIDAK MASUK",
             userLat: userLoc.lat, userLng: userLoc.lng,
             laporanStatus: listStatus.join(", "),
-            detailRutin: document.getElementById("detail_rutin").value,
-            detailTambahan: document.getElementById("detail_tambahan").value,
-            kendala: catatan,
+            detailRutin: document.getElementById("detail_rutin").value || "-",
+            detailTambahan: document.getElementById("detail_tambahan").value || "-",
+            kendala: catatan || "-",
             foto: base64Foto
         };
 
         fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) })
-        .then(() => { alert("Berhasil!"); window.location.reload(); })
-        .catch(() => btn.classList.remove("is-loading"));
+        .then(() => { alert("Berhasil Terkirim!"); window.location.reload(); })
+        .catch(() => { alert("Gagal Kirim!"); btn.classList.remove("is-loading"); });
     });
 </script>
 </body>
