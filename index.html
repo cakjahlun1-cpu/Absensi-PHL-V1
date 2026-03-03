@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Absensi PHL Terpadu v2.4</title>
+    <title>Absensi PHL Terpadu v2.5</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.9.3/css/bulma.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
@@ -65,7 +65,7 @@
                 </div>
 
                 <div class="notification is-light is-info is-small" id="gpsStatus" style="padding: 5px 10px;">
-                    <i class="fas fa-spinner fa-pulse"></i> Mencari sinyal GPS...
+                    <i class="fas fa-spinner fa-pulse"></i> Sinyal GPS Aktif
                 </div>
 
                 <div id="boxLaporan" class="hidden" style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #dbdbdb;">
@@ -102,18 +102,18 @@
                 </div>
 
                 <div class="field">
-                    <label class="label">Foto Selfie (Wajib)</label>
+                    <label class="label" id="lblFoto">Foto Selfie (Wajib)</label>
                     <div class="file is-info is-fullwidth has-name">
                         <label class="file-label">
-                            <input class="file-input" type="file" id="cameraInput" accept="image/*" capture="user" onchange="processImage()">
+                            <input class="file-input" type="file" id="cameraInput" accept="image/*" onchange="processImage()">
                             <span class="file-cta">
                                 <span class="file-icon"><i class="fas fa-camera"></i></span>
-                                <span class="file-label">Buka Kamera</span>
+                                <span class="file-label" id="btnFotoText">Buka Kamera</span>
                             </span>
                         </label>
                     </div>
                     <canvas id="canvas" style="display:none;"></canvas>
-                    <img id="preview" src="" alt="Preview Foto">
+                    <img id="preview" src="" alt="Preview Bukti">
                 </div>
 
                 <button type="submit" id="btnKirim" class="button is-primary is-fullwidth is-medium" style="margin-top:20px;" disabled>KIRIM DATA</button>
@@ -123,7 +123,7 @@
 </div>
 
 <script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzqP9-UyuKW2DcApCA80wE4NJF2iOKfL96RBAsvF-yRbilce21EcqdFCN73BvplhoffDQ/exec"; 
+    const SCRIPT_URL = "AKfycbzqP9-UyuKW2DcApCA80wE4NJF2iOKfL96RBAsvF-yRbilce21EcqdFCN73BvplhoffDQ"; 
     
     let currentMode = "MASUK";
     let userLoc = { lat: 0, lng: 0 };
@@ -152,7 +152,7 @@
                 let option = document.createElement("option");
                 option.value = nama; dataList.appendChild(option);
             });
-        } catch(e) { console.error("Error Fetch", e); }
+        } catch(e) { console.error("Sync Error", e); }
     }
 
     window.pilihJenis = (mode) => {
@@ -160,37 +160,40 @@
         const areaTidak = document.getElementById('area-tidak-masuk');
         const boxLaporan = document.getElementById('boxLaporan');
         const inputFoto = document.getElementById("cameraInput");
-        const radiusBox = document.getElementById("radiusInfo");
+        const lblFoto = document.getElementById("lblFoto");
+        const btnFotoText = document.getElementById("btnFotoText");
 
-        // RESET NAMA & LOKASI SETIAP PINDAH TAB
+        // Reset Pilihan
         document.getElementById("lokasi").selectedIndex = 0;
         document.getElementById("nama").value = "";
         selectedLokasi = null;
-        radiusBox.classList.add("hidden");
+        document.getElementById("radiusInfo").classList.add("hidden");
 
         document.querySelectorAll('button[id^="btn-"]').forEach(btn => {
-            btn.style.backgroundColor = "white";
-            btn.style.color = (btn.id === 'btn-tidak') ? "#e63946" : "#4361ee";
+            btn.style.backgroundColor = "white"; btn.style.color = (btn.id === 'btn-tidak') ? "#e63946" : "#4361ee";
         });
 
         const activeBtn = document.getElementById('btn-' + mode.toLowerCase().replace(' ', ''));
-        if(activeBtn) {
-            activeBtn.style.backgroundColor = (mode === 'TIDAK MASUK') ? "#e63946" : "#4361ee";
-            activeBtn.style.color = "white";
-        }
+        if(activeBtn) { activeBtn.style.backgroundColor = (mode === 'TIDAK MASUK') ? "#e63946" : "#4361ee"; activeBtn.style.color = "white"; }
 
         if (mode === 'MASUK') {
             areaTidak.classList.add("hidden"); boxLaporan.classList.add("hidden");
-            inputFoto.setAttribute("capture", "user");
+            inputFoto.setAttribute("capture", "user"); 
+            lblFoto.innerText = "Foto Selfie (Wajib)";
+            btnFotoText.innerText = "Buka Kamera";
             isRadiusOk = false;
         } else if (mode === 'PULANG') {
             areaTidak.classList.add("hidden"); boxLaporan.classList.remove("hidden");
-            inputFoto.removeAttribute("capture");
+            inputFoto.removeAttribute("capture"); 
+            lblFoto.innerText = "Foto Kegiatan (Wajib)";
+            btnFotoText.innerText = "Pilih Foto/Kamera";
             isRadiusOk = true; 
         } else {
             areaTidak.classList.remove("hidden"); boxLaporan.classList.add("hidden");
-            inputFoto.removeAttribute("capture");
-            isRadiusOk = true; // Langsung true untuk bypass kirim, tapi radius tetap muncul di UI via updateTargetLokasi
+            inputFoto.removeAttribute("capture"); 
+            lblFoto.innerText = "Bukti SS Chat Izin (Wajib)";
+            btnFotoText.innerText = "Pilih SS Chat";
+            isRadiusOk = true; // RADIUS DIMATIKAN TOTAL UNTUK IZIN
         }
         checkReady();
     };
@@ -199,15 +202,14 @@
         if (navigator.geolocation) {
             navigator.geolocation.watchPosition((pos) => {
                 userLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-                const gpsBox = document.getElementById("gpsStatus");
-                gpsBox.className = "notification is-success is-light is-small";
-                gpsBox.innerHTML = `<i class="fas fa-check-circle"></i> Lokasi Terkunci`;
+                document.getElementById("gpsStatus").innerHTML = `<i class="fas fa-check-circle"></i> Lokasi Terkunci`;
                 validateRadius();
             }, null, { enableHighAccuracy: true });
         }
     }
 
     function validateRadius() {
+        if (currentMode === 'TIDAK MASUK') { isRadiusOk = true; return; }
         if (!selectedLokasi || userLoc.lat === 0) return;
         
         let R = 6371000;
@@ -218,27 +220,17 @@
 
         let box = document.getElementById("radiusInfo");
         box.classList.remove("hidden");
-        
         if (distance <= selectedLokasi.radius) {
-            if (currentMode !== 'TIDAK MASUK') isRadiusOk = true;
-            box.className = "jarak-box jarak-aman"; box.innerHTML = `Jarak Aman: ${distance}m`;
+            isRadiusOk = true; box.className = "jarak-box jarak-aman"; box.innerHTML = `Jarak Aman: ${distance}m`;
         } else {
-            if (currentMode !== 'TIDAK MASUK') isRadiusOk = false;
-            box.className = "jarak-box jarak-bahaya"; box.innerHTML = `Terlalu Jauh! (${distance}m)`;
+            isRadiusOk = false; box.className = "jarak-box jarak-bahaya"; box.innerHTML = `Terlalu Jauh! (${distance}m)`;
         }
-        
-        // Paksa OK jika tidak masuk agar tombol kirim menyala
-        if (currentMode === 'TIDAK MASUK') isRadiusOk = true;
-        
         checkReady();
     }
 
     function updateTargetLokasi() {
         let idx = document.getElementById("lokasi").value;
-        if(idx !== "") {
-            selectedLokasi = lokasiData[idx];
-            validateRadius();
-        }
+        if(idx !== "") { selectedLokasi = lokasiData[idx]; validateRadius(); }
     }
 
     window.processImage = () => {
@@ -288,12 +280,10 @@
             jenis: currentMode,
             nama: inputNama,
             lokasiKerja: selectedLokasi ? selectedLokasi.nama : "TIDAK MASUK",
-            // DATA KOORDINAT UNTUK APPS SCRIPT
             targetLat: selectedLokasi ? selectedLokasi.lat : 0,
             targetLng: selectedLokasi ? selectedLokasi.lng : 0,
             maxRadius: selectedLokasi ? selectedLokasi.radius : 99999,
-            userLat: userLoc.lat, 
-            userLng: userLoc.lng,
+            userLat: userLoc.lat, userLng: userLoc.lng,
             laporanStatus: listStatus.join(", "),
             detailRutin: document.getElementById("detail_rutin").value || "-",
             detailTambahan: document.getElementById("detail_tambahan").value || "-",
@@ -302,8 +292,8 @@
         };
 
         fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) })
-        .then(() => { alert("Absensi Berhasil Terkirim!"); window.location.reload(); })
-        .catch(() => { alert("Gagal Kirim! Cek Koneksi."); btn.classList.remove("is-loading"); });
+        .then(() => { alert("Laporan Berhasil Terkirim!"); window.location.reload(); })
+        .catch(() => { alert("Gagal!"); btn.classList.remove("is-loading"); });
     });
 </script>
 </body>
