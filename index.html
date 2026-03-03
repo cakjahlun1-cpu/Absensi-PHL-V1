@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Absensi PHL Terpadu</title>
+    <title>Absensi PHL Terpadu v2</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.9.3/css/bulma.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
@@ -14,6 +14,8 @@
         .jarak-box { margin-bottom: 15px; padding: 10px; border-radius: 5px; font-weight: bold; font-size: 0.9em; text-align: center; }
         .jarak-aman { background-color: #effaf3; color: #257942; border: 1px solid #48c774; }
         .jarak-bahaya { background-color: #feecf0; color: #cc0f35; border: 1px solid #f14668; }
+        .item-tugas { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding: 5px; border-bottom: 1px solid #eee; }
+        .box-laporan { background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #ddd; }
     </style>
 </head>
 <body>
@@ -29,15 +31,13 @@
                 <button type="button" onclick="pilihJenis('TIDAK MASUK')" id="btn-tidak" style="background-color: white; color: #e63946; border: 1px solid #e63946; padding: 10px; border-radius: 8px; font-weight: bold; font-size: 11px;">Tidak Masuk</button>
             </div>
 
-            <div id="area-tidak-masuk" style="display: none; background-color: #f8f9fa; padding: 15px; border-radius: 10px; border: 1px solid #ddd; margin-bottom: 15px;">
-                <label style="font-weight: bold; display: block; margin-bottom: 5px;">Kategori:</label>
-                <select id="kategori_tidak_masuk" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc; margin-bottom: 10px;">
+            <div id="area-tidak-masuk" class="hidden" style="background-color: #feecf0; padding: 15px; border-radius: 10px; border: 1px solid #f14668; margin-bottom: 15px;">
+                <label style="font-weight: bold; display: block; margin-bottom: 5px;">Kategori Tidak Masuk:</label>
+                <select id="kategori_tidak_masuk" class="select is-fullwidth mb-2">
                     <option value="SAKIT">SAKIT</option>
                     <option value="IZIN">IZIN</option>
-                    <option value="LAINNYA">LAINNYA</option>
+                    <option value="ALFA">ALFA / TANPA KETERANGAN</option>
                 </select>
-                <label style="font-weight: bold; display: block; margin-bottom: 5px;">Alasan Detail:</label>
-                <textarea id="alasan_detail" rows="2" placeholder="Contoh: Demam tinggi" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box;"></textarea>
             </div>
 
             <form id="formAbsen">
@@ -56,29 +56,49 @@
                 <div id="radiusInfo" class="hidden"></div>
 
                 <div class="field">
-                    <label class="label">Nama Lengkap (Ketik & Pilih)</label>
+                    <label class="label">Nama Lengkap</label>
                     <div class="control has-icons-left">
-                        <input class="input" type="text" id="nama" list="daftarNama" placeholder="Ketik nama Anda..." required autocomplete="off">
-                        <datalist id="daftarNama">
-                            <option value="Memuat nama...">
-                        </datalist>
+                        <input class="input" type="text" id="nama" list="daftarNama" placeholder="Ketik & pilih nama..." required>
+                        <datalist id="daftarNama"></datalist>
                         <span class="icon is-small is-left"><i class="fas fa-user"></i></span>
                     </div>
-                    <p class="help is-info">Ketik 2-3 huruf nama Anda lalu pilih dari daftar.</p>
                 </div>
 
                 <div class="notification is-light is-info is-small" id="gpsStatus" style="padding: 5px 10px;">
                     <i class="fas fa-spinner fa-pulse"></i> Mencari sinyal GPS...
                 </div>
 
-                <div id="boxLaporan" class="hidden" style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                    <h6 class="title is-6 mb-2">📝 Laporan Harian</h6>
-                    <div class="field"><label class="label is-small">Hasil Pekerjaan</label><textarea id="hasil" class="textarea is-small" rows="2"></textarea></div>
-                    <div class="field"><label class="label is-small">Kendala</label><input id="kendala" class="input is-small" type="text"></div>
-                    <div class="field"><label class="label is-small">Tindak Lanjut</label><input id="lanjut" class="input is-small" type="text"></div>
+                <div id="boxLaporan" class="hidden box-laporan">
+                    <h6 class="title is-6 mb-3">📝 Progress Kerja Hari Ini</h6>
+                    <div id="container-tugas">
+                        <div class="item-tugas">
+                            <label class="checkbox" style="flex:1"><input type="checkbox" name="tugas" value="KETAPANG"> KETAPANG</label>
+                            <select name="status_tugas" class="select is-small" style="height:2em"><option value="DONE">DONE</option><option value="PROGRESS">PROGRESS</option><option value="PENDING">PENDING</option></select>
+                        </div>
+                        <div class="item-tugas">
+                            <label class="checkbox" style="flex:1"><input type="checkbox" name="tugas" value="PATROLI"> PATROLI</label>
+                            <select name="status_tugas" class="select is-small" style="height:2em"><option value="DONE">DONE</option><option value="PROGRESS">PROGRESS</option><option value="PENDING">PENDING</option></select>
+                        </div>
+                        <div class="item-tugas">
+                            <label class="checkbox" style="flex:1"><input type="checkbox" name="tugas" value="KOMSOS"> KOMSOS</label>
+                            <select name="status_tugas" class="select is-small" style="height:2em"><option value="DONE">DONE</option><option value="PROGRESS">PROGRESS</option><option value="PENDING">PENDING</option></select>
+                        </div>
+                        <div class="item-tugas">
+                            <label class="checkbox" style="flex:1"><input type="checkbox" name="tugas" value="ADMIN"> ADMIN</label>
+                            <select name="status_tugas" class="select is-small" style="height:2em"><option value="DONE">DONE</option><option value="PROGRESS">PROGRESS</option><option value="PENDING">PENDING</option></select>
+                        </div>
+                    </div>
+
+                    <div class="field mt-3"><label class="label is-small">Detail Pekerjaan Rutin</label><textarea id="detail_rutin" class="textarea is-small" rows="2"></textarea></div>
+                    <div class="field"><label class="label is-small">Pekerjaan Tambahan (Inisiatif)</label><textarea id="detail_tambahan" class="textarea is-small" rows="2"></textarea></div>
                 </div>
 
-                <div class="field" style="margin-top: 10px;">
+                <div class="field">
+                    <label class="label" id="lblKendala">Kendala Lapangan / Catatan Izin</label>
+                    <textarea id="kendala" class="textarea is-small" rows="2" placeholder="Sebutkan kendala atau alasan jika PENDING/IZIN"></textarea>
+                </div>
+
+                <div class="field">
                     <label class="label" id="lblFoto">Foto Selfie (Wajib)</label>
                     <div class="file is-info is-fullwidth has-name">
                         <label class="file-label">
@@ -93,38 +113,29 @@
                     <img id="preview" src="" alt="Preview Foto">
                 </div>
 
-                <button type="submit" id="btnKirim" class="button is-primary is-fullwidth is-medium" style="margin-top:20px;" disabled>
-                    <span class="icon"><i class="fas fa-paper-plane"></i></span>
-                    <span>KIRIM DATA</span>
-                </button>
+                <button type="submit" id="btnKirim" class="button is-primary is-fullwidth is-medium" style="margin-top:20px;" disabled>KIRIM DATA</button>
             </form>
         </div>
     </div>
 </div>
 
 <script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzqP9-UyuKW2DcApCA80wE4NJF2iOKfL96RBAsvF-yRbilce21EcqdFCN73BvplhoffDQ/exec"; 
+    const SCRIPT_URL = "ISI_DENGAN_URL_APPS_SCRIPT_ANDA"; 
     
     let currentMode = "MASUK";
     let userLoc = { lat: 0, lng: 0 };
     let lokasiData = [];
-    let personilData = []; // Untuk validasi nama
+    let personilData = [];
     let selectedLokasi = null;
     let base64Foto = "";
     let isRadiusOk = false;
 
-    window.onload = () => {
-        fetchDataSistem();
-        initGPS();
-    };
+    window.onload = () => { fetchDataSistem(); initGPS(); };
 
-    // AMBIL DATA LOKASI & PERSONIL SEKALIGUS
     async function fetchDataSistem() {
         try {
             let res = await fetch(SCRIPT_URL);
             let data = await res.json();
-            
-            // 1. Proses Lokasi
             lokasiData = data.lokasi;
             let select = document.getElementById("lokasi");
             select.innerHTML = '<option value="" disabled selected>-- Pilih Posko/Korwil --</option>';
@@ -132,33 +143,22 @@
                 let opt = document.createElement("option");
                 opt.value = index; opt.text = loc.nama; select.add(opt);
             });
-
-            // 2. Proses Nama Personil (Autocomplete)
             personilData = data.personil;
             let dataList = document.getElementById("daftarNama");
-            dataList.innerHTML = ""; 
             personilData.forEach(nama => {
                 let option = document.createElement("option");
-                option.value = nama;
-                dataList.appendChild(option);
+                option.value = nama; dataList.appendChild(option);
             });
-        } catch(e) { console.error("Gagal ambil data:", e); }
+        } catch(e) { console.error("Fetch error", e); }
     }
 
-    // FUNGSI PILIH JENIS
     window.pilihJenis = (mode) => {
         currentMode = mode;
-        base64Foto = ""; 
-        document.getElementById("cameraInput").value = "";
-        document.getElementById("preview").src = "";
-        
         const btnMasuk = document.getElementById('btn-masuk');
         const btnPulang = document.getElementById('btn-pulang');
         const btnTidak = document.getElementById('btn-tidak');
         const areaTidak = document.getElementById('area-tidak-masuk');
         const boxLaporan = document.getElementById('boxLaporan');
-        const inputFoto = document.getElementById("cameraInput");
-        const lblFoto = document.getElementById("lblFoto");
 
         [btnMasuk, btnPulang, btnTidak].forEach(btn => {
             btn.style.backgroundColor = "white";
@@ -167,52 +167,40 @@
 
         if (mode === 'MASUK') {
             btnMasuk.style.backgroundColor = "#4361ee"; btnMasuk.style.color = "white";
-            areaTidak.style.display = "none"; boxLaporan.classList.add("hidden");
-            lblFoto.innerText = "Foto Selfie (Wajib Live)";
-            inputFoto.setAttribute("capture", "user");
-            isRadiusOk = false; 
+            areaTidak.classList.add("hidden"); boxLaporan.classList.add("hidden");
+            isRadiusOk = false;
         } else if (mode === 'PULANG') {
             btnPulang.style.backgroundColor = "#4361ee"; btnPulang.style.color = "white";
-            areaTidak.style.display = "none"; boxLaporan.classList.remove("hidden");
-            lblFoto.innerText = "Foto Kegiatan (Galeri OK)";
-            inputFoto.removeAttribute("capture");
+            areaTidak.classList.add("hidden"); boxLaporan.classList.remove("hidden");
             isRadiusOk = true; 
-        } else if (mode === 'TIDAK MASUK') {
+        } else {
             btnTidak.style.backgroundColor = "#e63946"; btnTidak.style.color = "white";
-            areaTidak.style.display = "block"; boxLaporan.classList.add("hidden");
-            lblFoto.innerText = "Bukti Izin (SS Chat)";
-            inputFoto.removeAttribute("capture");
-            isRadiusOk = true; 
+            areaTidak.classList.remove("hidden"); boxLaporan.classList.add("hidden");
+            isRadiusOk = true;
         }
-        validateRadius();
         checkReady();
     };
 
     function initGPS() {
         if (navigator.geolocation) {
-            navigator.geolocation.watchPosition(
-                (pos) => {
-                    userLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-                    document.getElementById("gpsStatus").className = "notification is-success is-small";
-                    document.getElementById("gpsStatus").innerHTML = `<i class="fas fa-check-circle"></i> Lokasi Terkunci`;
-                    validateRadius();
-                },
-                (err) => { isRadiusOk = false; checkReady(); },
-                { enableHighAccuracy: true, maximumAge: 0 }
-            );
+            navigator.geolocation.watchPosition((pos) => {
+                userLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                document.getElementById("gpsStatus").className = "notification is-success is-small";
+                document.getElementById("gpsStatus").innerHTML = `<i class="fas fa-check-circle"></i> Lokasi Terkunci`;
+                validateRadius();
+            }, null, { enableHighAccuracy: true });
         }
     }
 
     function validateRadius() {
-        if (currentMode === 'TIDAK MASUK') { isRadiusOk = true; document.getElementById("radiusInfo").classList.add("hidden"); return; }
+        if (currentMode === 'TIDAK MASUK') { isRadiusOk = true; return; }
         if (!selectedLokasi || userLoc.lat === 0) return;
         
         let R = 6371000;
         let dLat = (userLoc.lat - selectedLokasi.lat) * Math.PI / 180;
         let dLon = (userLoc.lng - selectedLokasi.lng) * Math.PI / 180;
-        let a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(selectedLokasi.lat * Math.PI/180) * Math.cos(userLoc.lat * Math.PI/180) * Math.sin(dLon/2) * Math.sin(dLon/2);
-        let c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        let distance = Math.floor(R * c);
+        let a = Math.sin(dLat/2)**2 + Math.cos(selectedLokasi.lat * Math.PI/180) * Math.cos(userLoc.lat * Math.PI/180) * Math.sin(dLon/2)**2;
+        let distance = Math.floor(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
 
         let box = document.getElementById("radiusInfo");
         box.classList.remove("hidden");
@@ -225,14 +213,12 @@
     }
 
     function updateTargetLokasi() {
-        let idx = document.getElementById("lokasi").value;
-        selectedLokasi = lokasiData[idx];
+        selectedLokasi = lokasiData[document.getElementById("lokasi").value];
         validateRadius();
     }
 
     window.processImage = () => {
         let file = document.getElementById("cameraInput").files[0];
-        if (!file) return;
         let reader = new FileReader();
         reader.onload = (e) => {
             let img = new Image();
@@ -252,56 +238,44 @@
 
     function checkReady() {
         let btn = document.getElementById("btnKirim");
-        if (userLoc.lat !== 0 && base64Foto !== "" && isRadiusOk) {
-            btn.disabled = false; btn.innerText = "KIRIM DATA"; btn.className = "button is-primary is-fullwidth is-medium";
-        } else {
-            btn.disabled = true;
-            btn.innerText = !isRadiusOk ? "❌ DILUAR RADIUS" : "Lengkapi Data & Foto";
-            btn.className = "button is-danger is-fullwidth is-medium";
-        }
+        btn.disabled = !(userLoc.lat !== 0 && base64Foto !== "" && isRadiusOk);
     }
 
     document.getElementById("formAbsen").addEventListener("submit", (e) => {
         e.preventDefault();
-        
-        // VALIDASI NAMA HARUS SESUAI DAFTAR
         let inputNama = document.getElementById("nama").value.toUpperCase();
-        let valid = personilData.some(n => n.toUpperCase() === inputNama);
-        if (!valid) {
-            alert("❌ NAMA TIDAK TERDAFTAR!\nSilakan ketik nama dengan benar dan pilih dari saran yang muncul.");
-            return;
-        }
+        if (!personilData.includes(inputNama)) return alert("NAMA TIDAK TERDAFTAR!");
 
         let btn = document.getElementById("btnKirim");
         btn.classList.add("is-loading");
 
-        let ket = (currentMode === "TIDAK MASUK") ? 
-                  document.getElementById("kategori_tidak_masuk").value + ": " + document.getElementById("alasan_detail").value : 
-                  document.getElementById("kendala").value;
+        let listStatus = [];
+        document.querySelectorAll('.item-tugas').forEach(div => {
+            let cb = div.querySelector('input[type="checkbox"]');
+            let st = div.querySelector('select').value;
+            if(cb.checked) { listStatus.push(cb.value + " (" + st + ")"); }
+        });
+
+        let catatan = (currentMode === "TIDAK MASUK") ? 
+            document.getElementById("kategori_tidak_masuk").value + ": " + document.getElementById("kendala").value : 
+            document.getElementById("kendala").value;
 
         let payload = {
             jenis: currentMode,
             nama: inputNama,
             lokasiKerja: selectedLokasi ? selectedLokasi.nama : "TIDAK MASUK",
-            targetLat: selectedLokasi ? selectedLokasi.lat : 0,
-            targetLng: selectedLokasi ? selectedLokasi.lng : 0,
-            maxRadius: selectedLokasi ? selectedLokasi.radius : 99999,
             userLat: userLoc.lat, userLng: userLoc.lng,
-            hasil: document.getElementById("hasil").value,
-            kendala: ket,
-            lanjut: document.getElementById("lanjut").value,
+            laporanStatus: listStatus.join(", "),
+            detailRutin: document.getElementById("detail_rutin").value,
+            detailTambahan: document.getElementById("detail_tambahan").value,
+            kendala: catatan,
             foto: base64Foto
         };
 
         fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) })
-        .then(res => res.json())
-        .then(res => { 
-            alert("✅ Absensi Berhasil Terkirim!");
-            window.location.reload(); 
-        })
-        .catch(err => { alert("Error koneksi"); btn.classList.remove("is-loading"); });
+        .then(() => { alert("Berhasil!"); window.location.reload(); })
+        .catch(() => btn.classList.remove("is-loading"));
     });
 </script>
-
 </body>
 </html>
