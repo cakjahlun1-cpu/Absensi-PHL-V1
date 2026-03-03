@@ -278,15 +278,19 @@
             document.getElementById("kategori_tidak_masuk").value + ": " + document.getElementById("alasan_detail").value : 
             document.getElementById("kendala_lapangan").value;
 
-        let payload = {
+       let payload = {
             jenis: currentMode,
             nama: inputNama,
             lokasiKerja: selectedLokasi ? selectedLokasi.nama : "TIDAK MASUK",
-            userLat: userLoc.lat, userLng: userLoc.lng,
+            // BARIS DI BAWAH INI WAJIB ADA AGAR TIDAK !NUM
+            targetLat: selectedLokasi ? selectedLokasi.lat : 0,
+            targetLng: selectedLokasi ? selectedLokasi.lng : 0,
+            maxRadius: selectedLokasi ? selectedLokasi.radius : 99999,
+            userLat: userLoc.lat, 
+            userLng: userLoc.lng,
+            // ... data lainnya ...
             laporanStatus: listStatus.join(", "),
-            detailRutin: document.getElementById("detail_rutin").value || "-",
-            detailTambahan: document.getElementById("detail_tambahan").value || "-",
-            kendala: catatan || "-",
+            kendala: catatan,
             foto: base64Foto
         };
 
