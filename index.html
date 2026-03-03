@@ -47,7 +47,7 @@
                     <div class="control has-icons-left">
                         <div class="select is-fullwidth">
                             <select id="lokasi" required onchange="updateTargetLokasi()">
-                                <option value="" disabled selected>Sedang memuat data...</option>
+                                <option value="" disabled selected>Sedang memuat data lokasi...</option>
                             </select>
                         </div>
                         <span class="icon is-small is-left"><i class="fas fa-map-marker-alt"></i></span>
@@ -70,7 +70,7 @@
                 </div>
 
                 <div id="boxLaporan" class="hidden" style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #dbdbdb;">
-                    <h6 class="title is-6 mb-2">📝 Progress Kerja & Status</h6>
+                    <h6 class="title is-6 mb-2">📝 Laporan Kerja & Status</h6>
                     <div id="container-tugas">
                         <div class="item-tugas">
                             <label class="checkbox" style="flex: 1;"><input type="checkbox" name="tugas" value="KETAPANG"> KETAPANG</label>
@@ -87,7 +87,7 @@
                     </div>
                     <div class="field mt-3"><label class="label is-small">Detail Rutin</label><textarea id="detail_rutin" class="textarea is-small" rows="2"></textarea></div>
                     <div class="field"><label class="label is-small">Pekerjaan Tambahan</label><textarea id="detail_tambahan" class="textarea is-small" rows="2"></textarea></div>
-                    <div class="field"><label class="label is-small">Kendala Lapangan/Alat</label><textarea id="kendala" class="textarea is-small" rows="2" placeholder="Isi jika ada kendala/alat rusak"></textarea></div>
+                    <div class="field"><label class="label is-small">Kendala Lapangan/Alat</label><textarea id="kendala" class="textarea is-small" rows="2" placeholder="Isi jika ada kendala atau alat rusak"></textarea></div>
                 </div>
 
                 <div class="field">
@@ -124,13 +124,11 @@
 
     window.onload = () => { fetchDataSistem(); initGPS(); };
 
-    // FUNGSI MENGAMBIL DATA DARI SPREADSHEET (POSKO & NAMA)
     async function fetchDataSistem() {
         try {
             let res = await fetch(SCRIPT_URL);
             let data = await res.json();
             
-            // Render Lokasi
             lokasiData = data.lokasi;
             let select = document.getElementById("lokasi");
             select.innerHTML = '<option value="" disabled selected>-- Pilih Posko/Korwil --</option>';
@@ -139,7 +137,6 @@
                 opt.value = index; opt.text = loc.nama; select.add(opt);
             });
 
-            // Render Nama Autocomplete
             personilData = data.personil;
             let dataList = document.getElementById("daftarNama");
             dataList.innerHTML = "";
@@ -147,7 +144,7 @@
                 let option = document.createElement("option");
                 option.value = nama; dataList.appendChild(option);
             });
-        } catch(e) { console.error("Gagal sinkronisasi Spreadsheet", e); }
+        } catch(e) { console.error("Koneksi gagal", e); }
     }
 
     window.pilihJenis = (mode) => {
@@ -157,7 +154,6 @@
         const fieldLokasi = document.getElementById('fieldLokasi');
         const inputFoto = document.getElementById("cameraInput");
 
-        // Reset Warna Button
         document.querySelectorAll('button[id^="btn-"]').forEach(btn => {
             btn.style.backgroundColor = "white";
             btn.style.color = (btn.id === 'btn-tidak') ? "#e63946" : "#4361ee";
@@ -284,8 +280,8 @@
         };
 
         fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) })
-        .then(() => { alert("Berhasil Terkirim!"); window.location.reload(); })
-        .catch(() => { alert("Gagal Kirim!"); btn.classList.remove("is-loading"); });
+        .then(() => { alert("Absensi Terkirim!"); window.location.reload(); })
+        .catch(() => { alert("Gagal!"); btn.classList.remove("is-loading"); });
     });
 </script>
 </body>
