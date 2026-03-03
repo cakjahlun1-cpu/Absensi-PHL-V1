@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Absensi PHL Terpadu v2.1</title>
+    <title>Absensi PHL Terpadu v2.3</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.9.3/css/bulma.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
@@ -37,8 +37,7 @@
                     <option value="IZIN">IZIN</option>
                     <option value="LAINNYA">LAINNYA</option>
                 </select>
-                <label style="font-weight: bold; display: block; margin-bottom: 5px;">Alasan Detail:</label>
-                <textarea id="alasan_detail" rows="2" class="textarea is-small" placeholder="Contoh: Sakit gigi atau keperluan keluarga"></textarea>
+                <textarea id="alasan_detail" rows="2" class="textarea is-small" placeholder="Alasan Detail..."></textarea>
             </div>
 
             <form id="formAbsen">
@@ -47,7 +46,7 @@
                     <div class="control has-icons-left">
                         <div class="select is-fullwidth">
                             <select id="lokasi" required onchange="updateTargetLokasi()">
-                                <option value="" disabled selected>Memuat data lokasi...</option>
+                                <option value="" disabled selected>Memuat lokasi...</option>
                             </select>
                         </div>
                         <span class="icon is-small is-left"><i class="fas fa-map-marker-alt"></i></span>
@@ -57,16 +56,16 @@
                 <div id="radiusInfo" class="hidden"></div>
 
                 <div class="field">
-                    <label class="label">Nama Lengkap (Ketik & Pilih)</label>
+                    <label class="label">Nama Lengkap</label>
                     <div class="control has-icons-left">
-                        <input class="input" type="text" id="nama" list="daftarNama" placeholder="Ketik nama Anda..." required autocomplete="off">
+                        <input class="input" type="text" id="nama" list="daftarNama" placeholder="Ketik & Pilih Nama..." required autocomplete="off">
                         <datalist id="daftarNama"></datalist>
                         <span class="icon is-small is-left"><i class="fas fa-user"></i></span>
                     </div>
                 </div>
 
                 <div class="notification is-light is-info is-small" id="gpsStatus" style="padding: 5px 10px;">
-                    <i class="fas fa-spinner fa-pulse"></i> Sinyal GPS Aktif
+                    <i class="fas fa-spinner fa-pulse"></i> Mencari sinyal GPS...
                 </div>
 
                 <div id="boxLaporan" class="hidden" style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #dbdbdb;">
@@ -78,10 +77,6 @@
                         </div>
                         <div class="item-tugas">
                             <label class="checkbox" style="flex: 1;"><input type="checkbox" name="tugas" value="PATROLI"> PATROLI</label>
-                            <select name="status_tugas" class="select is-small"><option value="PROGRESS">PROGRESS</option><option value="PENDING">PENDING</option><option value="DONE">DONE</option></select>
-                        </div>
-                        <div class="item-tugas">
-                            <label class="checkbox" style="flex: 1;"><input type="checkbox" name="tugas" value="KOMSOS"> KOMSOS</label>
                             <select name="status_tugas" class="select is-small"><option value="PROGRESS">PROGRESS</option><option value="PENDING">PENDING</option><option value="DONE">DONE</option></select>
                         </div>
                         <div class="item-tugas">
@@ -103,11 +98,11 @@
                     </div>
                     <div class="field mt-3"><label class="label is-small">Detail Rutin</label><textarea id="detail_rutin" class="textarea is-small" rows="2"></textarea></div>
                     <div class="field"><label class="label is-small">Pekerjaan Tambahan</label><textarea id="detail_tambahan" class="textarea is-small" rows="2"></textarea></div>
-                    <div class="field"><label class="label is-small">Kendala Lapangan/Alat</label><textarea id="kendala_lapangan" class="textarea is-small" rows="2" placeholder="Sebutkan hambatan atau alat rusak"></textarea></div>
+                    <div class="field"><label class="label is-small">Kendala Lapangan/Alat</label><textarea id="kendala_lapangan" class="textarea is-small" rows="2"></textarea></div>
                 </div>
 
                 <div class="field">
-                    <label class="label" id="lblFoto">Foto Selfie (Wajib)</label>
+                    <label class="label">Foto Selfie (Wajib)</label>
                     <div class="file is-info is-fullwidth has-name">
                         <label class="file-label">
                             <input class="file-input" type="file" id="cameraInput" accept="image/*" capture="user" onchange="processImage()">
@@ -157,7 +152,7 @@
                 let option = document.createElement("option");
                 option.value = nama; dataList.appendChild(option);
             });
-        } catch(e) { console.error("Koneksi gagal", e); }
+        } catch(e) { console.error("Error Fetch", e); }
     }
 
     window.pilihJenis = (mode) => {
@@ -165,6 +160,13 @@
         const areaTidak = document.getElementById('area-tidak-masuk');
         const boxLaporan = document.getElementById('boxLaporan');
         const inputFoto = document.getElementById("cameraInput");
+        const radiusBox = document.getElementById("radiusInfo");
+
+        // RESET NAMA & LOKASI SETIAP PINDAH TAB
+        document.getElementById("lokasi").selectedIndex = 0;
+        document.getElementById("nama").value = "";
+        selectedLokasi = null;
+        radiusBox.classList.add("hidden");
 
         document.querySelectorAll('button[id^="btn-"]').forEach(btn => {
             btn.style.backgroundColor = "white";
@@ -188,22 +190,25 @@
         } else {
             areaTidak.classList.remove("hidden"); boxLaporan.classList.add("hidden");
             inputFoto.removeAttribute("capture");
-            isRadiusOk = true; // Bebas Radius untuk Tidak Masuk
+            isRadiusOk = true;
         }
-        validateRadius(); checkReady();
+        checkReady();
     };
 
     function initGPS() {
         if (navigator.geolocation) {
             navigator.geolocation.watchPosition((pos) => {
                 userLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                const gpsBox = document.getElementById("gpsStatus");
+                gpsBox.className = "notification is-success is-light is-small";
+                gpsBox.innerHTML = `<i class="fas fa-check-circle"></i> Lokasi Terkunci`;
                 validateRadius();
             }, null, { enableHighAccuracy: true });
         }
     }
 
     function validateRadius() {
-        if (currentMode === 'TIDAK MASUK') { isRadiusOk = true; document.getElementById("radiusInfo").classList.add("hidden"); return; }
+        if (currentMode === 'TIDAK MASUK') { isRadiusOk = true; return; }
         if (!selectedLokasi || userLoc.lat === 0) return;
         
         let R = 6371000;
@@ -224,8 +229,10 @@
 
     function updateTargetLokasi() {
         let idx = document.getElementById("lokasi").value;
-        selectedLokasi = lokasiData[idx];
-        validateRadius();
+        if(idx !== "") {
+            selectedLokasi = lokasiData[idx];
+            validateRadius();
+        }
     }
 
     window.processImage = () => {
@@ -284,7 +291,7 @@
         };
 
         fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) })
-        .then(() => { alert("Absensi Terkirim!"); window.location.reload(); })
+        .then(() => { alert("Absensi Berhasil Terkirim!"); window.location.reload(); })
         .catch(() => { alert("Gagal!"); btn.classList.remove("is-loading"); });
     });
 </script>
