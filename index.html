@@ -105,7 +105,7 @@
                     <label class="label" id="lblFoto">Foto Selfie (Wajib)</label>
                     <div class="file is-info is-fullwidth has-name">
                         <label class="file-label">
-                            <input class="file-input" type="file" id="cameraInput" accept="image/*" onchange="processImage()">
+                            <input class="file-input" type="file" id="cameraInput" accept="image/*" capture="user" onchange="processImage()">
                             <span class="file-cta">
                                 <span class="file-icon"><i class="fas fa-camera"></i></span>
                                 <span class="file-label" id="btnFotoText">Buka Kamera</span>
@@ -254,9 +254,27 @@
 
     function checkReady() {
         let btn = document.getElementById("btnKirim");
-        btn.disabled = !(userLoc.lat !== 0 && base64Foto !== "" && isRadiusOk);
-    }
+        
+        // Logika khusus untuk mengecek laporan di tab PULANG
+        let laporanOke = true; 
+        if (currentMode === 'PULANG') {
+            let adaTugas = false;
+            document.querySelectorAll('input[name="tugas"]').forEach(cb => {
+                if (cb.checked) adaTugas = true;
+            });
+            
+            let adaTeks = document.getElementById("detail_rutin").value.trim() !== "" ||
+                          document.getElementById("detail_tambahan").value.trim() !== "" ||
+                          document.getElementById("kendala_lapangan").value.trim() !== "";
+            
+            // Laporan dianggap oke jika minimal 1 centang tugas ATAU 1 kolom teks diisi
+            laporanOke = (adaTugas || adaTeks);
+        }
 
+        // Tombol nyala HANYA JIKA: lokasi dapat, foto ada, radius aman, DAN laporan terisi (khusus pulang)
+        btn.disabled = !(userLoc.lat !== 0 && base64Foto !== "" && isRadiusOk && laporanOke);
+    }
+    
     document.getElementById("formAbsen").addEventListener("submit", (e) => {
         e.preventDefault();
         let inputNama = document.getElementById("nama").value.toUpperCase();
