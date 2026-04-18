@@ -21,7 +21,10 @@
 
 <div class="container" style="max-width: 480px;">
     <div class="card">
-        <div class="card-content">
+        <div class="card-content" style="position: relative;">
+            <!-- Ikon Pengaturan Tersembunyi (Klik untuk Buka/Tutup Batas Waktu) -->
+            <i class="fas fa-cog" style="position: absolute; top: 15px; right: 15px; cursor: pointer; color: #dbdbdb;" onclick="bukaPassword()" title="Pengaturan Admin"></i>
+            
             <h4 class="title is-4 has-text-centered"><i class="fas fa-user-clock"></i> Absensi PHL</h4>
             
             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 15px;">
@@ -146,6 +149,45 @@
     </div>
 </div>
 
+<!-- Modal Password Admin -->
+<div class="modal" id="modalPassword">
+  <div class="modal-background" onclick="tutupPassword()"></div>
+  <div class="modal-content" style="max-width: 320px; margin: 0 auto;">
+    <div class="box">
+      <h5 class="title is-5 mb-3"><i class="fas fa-lock"></i> Akses Admin</h5>
+      <div class="field">
+        <div class="control has-icons-left">
+          <input class="input" type="password" id="inputPassword" placeholder="Masukkan Password">
+          <span class="icon is-small is-left"><i class="fas fa-key"></i></span>
+        </div>
+        <p class="help is-danger hidden" id="errorPassword">Password salah!</p>
+      </div>
+      <div class="buttons is-right mt-4">
+        <button class="button is-light" onclick="tutupPassword()">Batal</button>
+        <button class="button is-primary" onclick="cekPassword()">Masuk</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal untuk Pengaturan Admin -->
+<div class="modal" id="modalPengaturan">
+  <div class="modal-background" onclick="tutupPengaturan()"></div>
+  <div class="modal-content" style="max-width: 320px; margin: 0 auto;">
+    <div class="box">
+      <h5 class="title is-5 mb-3"><i class="fas fa-cogs"></i> Pengaturan Admin</h5>
+      <div class="field">
+        <label class="checkbox" style="font-weight: bold; display: flex; align-items: center; gap: 8px;">
+          <input type="checkbox" id="cbBatasWaktu" checked onchange="checkReady()">
+          Batas Absen Masuk (09:00)
+        </label>
+        <p class="help mt-1">Hilangkan centang jika Anda ingin "membuka" kembali akses absen masuk untuk siapa saja meski sudah lewat jam 09:00.</p>
+      </div>
+      <button class="button is-info is-small is-fullwidth mt-4" onclick="tutupPengaturan()">Tutup</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal untuk menggantikan Alert Bawaan Browser -->
 <div class="modal" id="messageModal">
   <div class="modal-background" onclick="closeModal()"></div>
@@ -170,6 +212,37 @@
     let reloadAfterClose = false;
 
     window.onload = () => { fetchDataSistem(); initGPS(); setInterval(checkReady, 60000); };
+
+    // Fungsi Password Admin
+    function bukaPassword() {
+        document.getElementById("inputPassword").value = "";
+        document.getElementById("errorPassword").classList.add("hidden");
+        document.getElementById("modalPassword").classList.add("is-active");
+    }
+
+    function tutupPassword() {
+        document.getElementById("modalPassword").classList.remove("is-active");
+    }
+
+    function cekPassword() {
+        let pwd = document.getElementById("inputPassword").value;
+        // UBAH PASSWORD DI SINI JIKA INGIN DIGANTI
+        if (pwd === "admin123") {
+            tutupPassword();
+            bukaPengaturan();
+        } else {
+            document.getElementById("errorPassword").classList.remove("hidden");
+        }
+    }
+
+    // Fungsi Buka Tutup Pengaturan Admin
+    function bukaPengaturan() {
+        document.getElementById("modalPengaturan").classList.add("is-active");
+    }
+
+    function tutupPengaturan() {
+        document.getElementById("modalPengaturan").classList.remove("is-active");
+    }
 
     // Fungsi Custom Modal Message
     function showModal(message, reload = false) {
@@ -307,9 +380,12 @@
         let btn = document.getElementById("btnKirim");
         let warningWaktu = document.getElementById("warningWaktu");
         let isWaktuHabis = false;
+        
+        // Ambil status Pengaturan (apakah batas waktu sedang aktif)
+        let isBatasAktif = document.getElementById("cbBatasWaktu").checked;
 
-        // Cek waktu untuk Absen Masuk (Batas jam 09:00)
-        if (currentMode === 'MASUK') {
+        // Cek waktu untuk Absen Masuk JIKA pengaturan batas waktu diaktifkan
+        if (currentMode === 'MASUK' && isBatasAktif) {
             let jamSekarang = new Date().getHours();
             if (jamSekarang >= 9) { 
                 isWaktuHabis = true;
@@ -337,15 +413,16 @@
             laporanOke = (adaTugas || adaTeks);
         }
 
-        // Tombol nyala HANYA JIKA: lokasi dapat, foto ada, radius aman, laporan terisi, dan waktu belum lewat (khusus masuk)
+        // Tombol nyala HANYA JIKA: lokasi dapat, foto ada, radius aman, laporan terisi, dan waktu belum lewat
         btn.disabled = !(userLoc.lat !== 0 && base64Foto !== "" && isRadiusOk && laporanOke && !isWaktuHabis);
     }
     
     document.getElementById("formAbsen").addEventListener("submit", (e) => {
         e.preventDefault();
 
-        // Keamanan tambahan saat submit
-        if (currentMode === 'MASUK' && new Date().getHours() >= 9) {
+        // Keamanan tambahan saat submit dengan melihat status pengaturan
+        let isBatasAktif = document.getElementById("cbBatasWaktu").checked;
+        if (currentMode === 'MASUK' && isBatasAktif && new Date().getHours() >= 9) {
             return showModal("Batas waktu Absen Masuk (09:00) telah lewat!");
         }
 
