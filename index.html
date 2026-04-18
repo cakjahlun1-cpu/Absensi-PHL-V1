@@ -140,7 +140,7 @@
                 </div>
 
                 <div id="warningWaktu" class="notification is-danger is-light is-small hidden" style="margin-bottom: 15px;">
-                    <i class="fas fa-exclamation-triangle"></i> Batas waktu Absen Masuk (09:00) telah lewat.
+                    <i class="fas fa-exclamation-triangle"></i> Batas waktu Absen Masuk telah lewat, Silahkan hubungi Admin.
                 </div>
 
                 <button type="submit" id="btnKirim" class="button is-primary is-fullwidth is-medium" style="margin-top:20px;" disabled>KIRIM DATA</button>
@@ -179,7 +179,9 @@
       <div class="field">
         <label class="checkbox" style="font-weight: bold; display: flex; align-items: center; gap: 8px;">
           <input type="checkbox" id="cbBatasWaktu" checked onchange="checkReady()">
-          Batas Absen Masuk Telah Melewati Batas
+          Batas Absen Masuk (09:00)
+        </label>
+        <p class ="help mt-1">Hilangkan centang jika anda ingin "membuka" kembali akses masuk untuk siapa saja meski sudah lewat jam 09:00 </p> 
       </div>
       <button class="button is-info is-small is-fullwidth mt-4" onclick="tutupPengaturan()">Tutup</button>
     </div>
