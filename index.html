@@ -136,10 +136,25 @@
                     <img id="preview" src="" alt="Preview Bukti">
                 </div>
 
+                <div id="warningWaktu" class="notification is-danger is-light is-small hidden" style="margin-bottom: 15px;">
+                    <i class="fas fa-exclamation-triangle"></i> Batas waktu Absen Masuk (09:00) telah lewat.
+                </div>
+
                 <button type="submit" id="btnKirim" class="button is-primary is-fullwidth is-medium" style="margin-top:20px;" disabled>KIRIM DATA</button>
             </form>
         </div>
     </div>
+</div>
+
+<!-- Modal untuk menggantikan Alert Bawaan Browser -->
+<div class="modal" id="messageModal">
+  <div class="modal-background" onclick="closeModal()"></div>
+  <div class="modal-content" style="max-width: 320px; margin: 0 auto;">
+    <div class="box has-text-centered">
+      <p id="messageText" class="mb-4 is-size-5" style="font-weight: bold;"></p>
+      <button class="button is-info is-fullwidth" onclick="closeModal()">Tutup</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -152,8 +167,23 @@
     let selectedLokasi = null;
     let base64Foto = "";
     let isRadiusOk = false;
+    let reloadAfterClose = false;
 
-    window.onload = () => { fetchDataSistem(); initGPS(); };
+    window.onload = () => { fetchDataSistem(); initGPS(); setInterval(checkReady, 60000); };
+
+    // Fungsi Custom Modal Message
+    function showModal(message, reload = false) {
+        document.getElementById("messageText").innerText = message;
+        document.getElementById("messageModal").classList.add("is-active");
+        reloadAfterClose = reload;
+    }
+
+    function closeModal() {
+        document.getElementById("messageModal").classList.remove("is-active");
+        if (reloadAfterClose) {
+            window.location.reload();
+        }
+    }
 
     async function fetchDataSistem() {
         try {
@@ -255,6 +285,7 @@
 
     window.processImage = () => {
         let file = document.getElementById("cameraInput").files[0];
+        if (!file) return;
         let reader = new FileReader();
         reader.onload = (e) => {
             let img = new Image();
@@ -274,6 +305,21 @@
 
     function checkReady() {
         let btn = document.getElementById("btnKirim");
+        let warningWaktu = document.getElementById("warningWaktu");
+        let isWaktuHabis = false;
+
+        // Cek waktu untuk Absen Masuk (Batas jam 09:00)
+        if (currentMode === 'MASUK') {
+            let jamSekarang = new Date().getHours();
+            if (jamSekarang >= 9) { 
+                isWaktuHabis = true;
+                if(warningWaktu) warningWaktu.classList.remove("hidden");
+            } else {
+                if(warningWaktu) warningWaktu.classList.add("hidden");
+            }
+        } else {
+            if(warningWaktu) warningWaktu.classList.add("hidden");
+        }
         
         // Logika khusus untuk mengecek laporan di tab PULANG
         let laporanOke = true; 
@@ -291,14 +337,20 @@
             laporanOke = (adaTugas || adaTeks);
         }
 
-        // Tombol nyala HANYA JIKA: lokasi dapat, foto ada, radius aman, DAN laporan terisi (khusus pulang)
-        btn.disabled = !(userLoc.lat !== 0 && base64Foto !== "" && isRadiusOk && laporanOke);
+        // Tombol nyala HANYA JIKA: lokasi dapat, foto ada, radius aman, laporan terisi, dan waktu belum lewat (khusus masuk)
+        btn.disabled = !(userLoc.lat !== 0 && base64Foto !== "" && isRadiusOk && laporanOke && !isWaktuHabis);
     }
     
     document.getElementById("formAbsen").addEventListener("submit", (e) => {
         e.preventDefault();
+
+        // Keamanan tambahan saat submit
+        if (currentMode === 'MASUK' && new Date().getHours() >= 9) {
+            return showModal("Batas waktu Absen Masuk (09:00) telah lewat!");
+        }
+
         let inputNama = document.getElementById("nama").value.toUpperCase();
-        if (!personilData.some(n => n.toUpperCase() === inputNama)) return alert("NAMA TIDAK TERDAFTAR!");
+        if (!personilData.some(n => n.toUpperCase() === inputNama)) return showModal("NAMA TIDAK TERDAFTAR!");
 
         let btn = document.getElementById("btnKirim");
         btn.classList.add("is-loading");
@@ -330,8 +382,8 @@
         };
 
         fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) })
-        .then(() => { alert("Laporan Berhasil Terkirim!"); window.location.reload(); })
-        .catch(() => { alert("Gagal!"); btn.classList.remove("is-loading"); });
+        .then(() => { showModal("Laporan Berhasil Terkirim!", true); })
+        .catch(() => { showModal("Pengiriman Gagal, coba lagi."); btn.classList.remove("is-loading"); });
     });
 </script>
 </body>
