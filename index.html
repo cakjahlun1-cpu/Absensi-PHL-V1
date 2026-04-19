@@ -140,7 +140,7 @@
                 </div>
 
                 <div id="warningWaktu" class="notification is-danger is-light is-small hidden" style="margin-bottom: 15px;">
-                    <i class="fas fa-exclamation-triangle"></i> Batas waktu Absen Masuk telah lewat, Silahkan hubungi Admin.
+                    <i class="fas fa-exclamation-triangle"></i> Batas waktu Absen Masuk (09:00) telah lewat.
                 </div>
 
                 <button type="submit" id="btnKirim" class="button is-primary is-fullwidth is-medium" style="margin-top:20px;" disabled>KIRIM DATA</button>
@@ -178,10 +178,10 @@
       <h5 class="title is-5 mb-3"><i class="fas fa-cogs"></i> Pengaturan Admin</h5>
       <div class="field">
         <label class="checkbox" style="font-weight: bold; display: flex; align-items: center; gap: 8px;">
-          <input type="checkbox" id="cbBatasWaktu" checked onchange="checkReady()">
+          <input type="checkbox" id="cbBatasWaktu" checked onchange="toggleBatasWaktu(this.checked)">
           Batas Absen Masuk (09:00)
         </label>
-        <p class ="help mt-1">Hilangkan centang jika anda ingin "membuka" kembali akses masuk untuk siapa saja meski sudah lewat jam 09:00 </p> 
+        <p class="help mt-1">Hilangkan centang jika Anda ingin "membuka" kembali akses absen masuk untuk siapa saja meski sudah lewat jam 09:00.</p>
       </div>
       <button class="button is-info is-small is-fullwidth mt-4" onclick="tutupPengaturan()">Tutup</button>
     </div>
@@ -243,6 +243,14 @@
     function tutupPengaturan() {
         document.getElementById("modalPengaturan").classList.remove("is-active");
     }
+
+    // Fungsi Mengubah Batas Waktu dan Sinkronisasi ke Cloud
+    window.toggleBatasWaktu = function(status) {
+        if (window.updateBatasWaktuGlobal) {
+            window.updateBatasWaktuGlobal(status); // Kirim ke database online
+        }
+        checkReady(); // Update tampilan lokal
+    };
 
     // Fungsi Custom Modal Message
     function showModal(message, reload = false) {
@@ -463,5 +471,68 @@
         .catch(() => { showModal("Pengiriman Gagal, coba lagi."); btn.classList.remove("is-loading"); });
     });
 </script>
+
+<!-- Modul Firebase untuk Sinkronisasi Cloud Waktu Nyata -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    let firebaseConfig;
+    try {
+        firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+    } catch(e) {
+        console.warn("Konfigurasi database online belum siap.");
+    }
+
+    if (firebaseConfig && Object.keys(firebaseConfig).length > 0) {
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        // Autentikasi Pengguna Secara Anonim (Wajib untuk database)
+        const initAuth = async () => {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Gagal terhubung ke autentikasi", error);
+            }
+        };
+        initAuth();
+
+        onAuthStateChanged(auth, (user) => {
+            if (!user) return;
+            
+            // Path sinkronisasi global: semua HP akan membaca jalur ini
+            const settingRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'batasWaktu');
+            
+            // Pasang pendengar (listener) untuk mendeteksi perubahan dari Admin lain atau Admin utama
+            onSnapshot(settingRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    let statusAktif = docSnap.data().aktif;
+                    document.getElementById("cbBatasWaktu").checked = statusAktif;
+                    if (typeof window.checkReady === "function") window.checkReady();
+                }
+            }, (error) => {
+                console.error("Gagal mendengarkan sinkronisasi:", error);
+            });
+
+            // Ekspor fungsi untuk dipanggil saat Admin mencentang checkbox
+            window.updateBatasWaktuGlobal = async (status) => {
+                try {
+                    await setDoc(settingRef, { aktif: status });
+                } catch (e) {
+                    console.error("Gagal memperbarui database online:", e);
+                }
+            };
+        });
+    }
+</script>
+
 </body>
 </html>
