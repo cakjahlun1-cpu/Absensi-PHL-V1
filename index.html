@@ -139,12 +139,13 @@
                     <img id="preview" src="" alt="Preview Bukti">
                 </div>
 
-                <!-- Peringatan Merah -->
-                <div id="warningWaktu" class="notification is-danger is-light is-small hidden" style="margin-bottom: 15px;">
-                    <div><i class="fas fa-exclamation-triangle"></i> Batas waktu Absen Masuk (09:00) telah lewat.</div>
-                </div>
+                <!-- Peringatan / Pemberitahuan Buka Kunci -->
+                <div id="warningWaktu" class="hidden" style="margin-bottom: 15px;"></div>
 
-                <button type="submit" id="btnKirim" class="button is-primary is-fullwidth is-medium" style="margin-top:20px;" disabled>KIRIM DATA</button>
+                <!-- Indikator Syarat yang belum terpenuhi -->
+                <p id="syaratKirim" class="help is-danger has-text-centered mb-2" style="font-weight:bold; font-size:13px;"></p>
+
+                <button type="submit" id="btnKirim" class="button is-primary is-fullwidth is-medium" disabled>KIRIM DATA</button>
             </form>
         </div>
     </div>
@@ -176,15 +177,16 @@
   <div class="modal-background" onclick="tutupPengaturan()"></div>
   <div class="modal-content" style="max-width: 320px; margin: 0 auto;">
     <div class="box">
-      <h5 class="title is-5 mb-3"><i class="fas fa-cogs"></i> Pengaturan Admin</h5>
+      <h5 class="title is-5 mb-3"><i class="fas fa-cogs"></i> Pengaturan Admin Pusat</h5>
       <div class="field">
         <label class="checkbox" style="font-weight: bold; display: flex; align-items: center; gap: 8px;">
           <input type="checkbox" id="cbBatasWaktu" checked onchange="toggleBatasWaktu(this.checked)">
-          Batas Absen Masuk (09:00)
+          Kunci Absen Masuk (09:00)
         </label>
-        <p class="help mt-1">Hilangkan centang untuk <b>membuka akses absen masuk secara global</b> bagi semua karyawan di semua perangkat secara bersamaan.</p>
+        <p class="help mt-1 mb-2">Hilangkan centang untuk <b>membuka akses</b> bagi semua karyawan di semua perangkat secara bersamaan.</p>
+        <p id="statusSync" class="help has-text-grey mt-1"><i class="fas fa-sync fa-spin"></i> Memeriksa koneksi Cloud...</p>
       </div>
-      <button class="button is-info is-small is-fullwidth mt-4" onclick="tutupPengaturan()">Tutup</button>
+      <button class="button is-info is-small is-fullwidth mt-4" onclick="tutupPengaturan()">Tutup Panel</button>
     </div>
   </div>
 </div>
@@ -216,7 +218,7 @@
     window.isBatasAktifGlobal = true; 
 
     window.onload = () => { 
-        // Ambil pengaturan yang tersimpan (sebagai cadangan awal sebelum terhubung internet)
+        // Ambil pengaturan yang tersimpan lokal sebagai data awal sebelum loading dari internet
         let savedBatas = localStorage.getItem("batasWaktuAktif");
         if (savedBatas !== null) {
             window.isBatasAktifGlobal = (savedBatas === "true");
@@ -224,7 +226,7 @@
         }
         fetchDataSistem(); 
         initGPS(); 
-        setInterval(checkReady, 60000); 
+        setInterval(checkReady, 30000); // Cek ulang setiap 30 detik
     };
 
     // Fungsi Password Admin
@@ -240,7 +242,7 @@
 
     function cekPassword() {
         let pwd = document.getElementById("inputPassword").value;
-        if (pwd === "admin123") { // <<-- UBAH PASSWORD DI SINI JIKA PERLU
+        if (pwd === "admin123") { // <<-- PASSWORD ADMIN
             tutupPassword();
             bukaPengaturan();
         } else {
@@ -262,9 +264,22 @@
         window.isBatasAktifGlobal = status;
         localStorage.setItem("batasWaktuAktif", status);
         
-        // Panggil fungsi Cloud Firebase jika siap
-        if (window.updateFirebaseSetting) {
+        let statusEl = document.getElementById("statusSync");
+        
+        // Cek jika tersambung ke Firebase Canvas
+        if (typeof window.updateFirebaseSetting === 'function') {
+            if(statusEl) {
+                statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyinkronkan...';
+                statusEl.className = "help has-text-warning mt-1";
+            }
             window.updateFirebaseSetting(status);
+        } else {
+            // Jika diekspor keluar (misal ke Apps Script langsung)
+            if(statusEl) {
+                statusEl.innerHTML = '<i class="fas fa-exclamation-circle"></i> Mode Lokal Aktif (Perubahan hanya di HP ini)';
+                statusEl.className = "help has-text-danger mt-1";
+            }
+            showModal("PEMBERITAHUAN: Anda membuka aplikasi di luar preview, fitur Remote/Awan mungkin tidak berjalan. Batas hanya terbuka di HP ini.");
         }
         checkReady(); 
     };
@@ -406,21 +421,38 @@
         let warningWaktu = document.getElementById("warningWaktu");
         let isWaktuHabis = false;
 
-        // Cek waktu untuk Absen Masuk JIKA pengaturan aktif secara GLOBAL
-        if (currentMode === 'MASUK' && window.isBatasAktifGlobal) {
-            let jamSekarang = new Date().getHours();
+        // Cek Jam Terkini
+        let jamSekarang = new Date().getHours();
+
+        if (currentMode === 'MASUK') {
             if (jamSekarang >= 9) { 
-                isWaktuHabis = true;
-                if(warningWaktu) warningWaktu.classList.remove("hidden");
+                if (window.isBatasAktifGlobal) {
+                    // Jika jam lewat 9 dan Sistem TERKUNCI
+                    isWaktuHabis = true;
+                    if(warningWaktu) {
+                        warningWaktu.classList.remove("hidden");
+                        warningWaktu.className = "notification is-danger is-light is-small";
+                        warningWaktu.innerHTML = `<div><i class="fas fa-lock"></i> Batas waktu Absen Masuk (09:00) telah lewat. Absen Dikunci.</div>`;
+                    }
+                } else {
+                    // Jika jam lewat 9 dan Sistem TELAH DIBUKA ADMIN
+                    isWaktuHabis = false;
+                    if(warningWaktu) {
+                        warningWaktu.classList.remove("hidden");
+                        warningWaktu.className = "notification is-success is-light is-small";
+                        warningWaktu.innerHTML = `<div><i class="fas fa-unlock"></i> Akses keterlambatan telah <b>dibuka</b> oleh Admin. Anda bisa absen sekarang.</div>`;
+                    }
+                }
             } else {
+                // Jika masih di bawah jam 9 pagi
                 if(warningWaktu) warningWaktu.classList.add("hidden");
             }
         } else {
-            // Jika Batas Waktu dinonaktifkan Admin, sembunyikan peringatan dan abaikan jam
+            // Jika tab "Pulang" atau "Tidak Masuk"
             if(warningWaktu) warningWaktu.classList.add("hidden");
         }
         
-        // Logika khusus untuk mengecek laporan di tab PULANG
+        // Logika khusus laporan tab PULANG
         let laporanOke = true; 
         if (currentMode === 'PULANG') {
             let adaTugas = false;
@@ -435,14 +467,31 @@
             laporanOke = (adaTugas || adaTeks);
         }
 
-        // Tombol nyala HANYA JIKA: lokasi dapat, foto ada, radius aman, laporan terisi, dan waktu belum lewat
-        btn.disabled = !(userLoc.lat !== 0 && base64Foto !== "" && isRadiusOk && laporanOke && !isWaktuHabis);
+        // PENGECEKAN SYARAT DAN TAMPILAN ERROR DI ATAS TOMBOL
+        let pesanKurang = [];
+        if (!selectedLokasi) pesanKurang.push("Pilih Lokasi");
+        if (!isRadiusOk && selectedLokasi) pesanKurang.push("Berada di Radius Aman");
+        if (base64Foto === "") pesanKurang.push("Ambil Foto");
+        if (currentMode === 'PULANG' && !laporanOke) pesanKurang.push("Isi Laporan Kerja");
+        if (isWaktuHabis) pesanKurang.push("Terkunci Waktu");
+
+        let labelSyarat = document.getElementById("syaratKirim");
+        if (pesanKurang.length > 0) {
+            btn.disabled = true;
+            if(labelSyarat) {
+                labelSyarat.classList.remove("hidden");
+                labelSyarat.innerText = "*Lengkapi syarat: " + pesanKurang.join(", ") + "*";
+            }
+        } else {
+            btn.disabled = false;
+            if(labelSyarat) labelSyarat.classList.add("hidden");
+        }
     }
     
     document.getElementById("formAbsen").addEventListener("submit", (e) => {
         e.preventDefault();
 
-        // Keamanan tambahan saat submit dengan melihat status pengaturan
+        // Keamanan ganda
         if (currentMode === 'MASUK' && window.isBatasAktifGlobal && new Date().getHours() >= 9) {
             return showModal("Batas waktu Absen Masuk (09:00) telah lewat!");
         }
@@ -492,9 +541,8 @@
     import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     try {
-        const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
-        if (configStr) {
-            const firebaseConfig = JSON.parse(configStr);
+        if (typeof __firebase_config !== 'undefined') {
+            const firebaseConfig = JSON.parse(__firebase_config);
             const app = initializeApp(firebaseConfig);
             const auth = getAuth(app);
             const db = getFirestore(app);
@@ -512,14 +560,21 @@
             onAuthStateChanged(auth, (user) => {
                 if (!user) return;
 
-                // Path database tempat status pengaturan disimpan (dibaca oleh semua HP)
+                // Memperbarui UI di Admin bahwa Cloud Siap
+                let statusEl = document.getElementById("statusSync");
+                if(statusEl) {
+                    statusEl.innerHTML = '<i class="fas fa-cloud"></i> Terhubung ke Sistem Cloud';
+                    statusEl.className = "help has-text-info mt-1";
+                }
+
                 const settingRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'globalConfig');
 
-                // 1. Mendengarkan perubahan (Ketika Admin merubah dari HP-nya, HP lain akan menerima sinyal ini)
+                // 1. Terima Sinyal Buka/Tutup dari Awan
                 onSnapshot(settingRef, (docSnap) => {
                     if (docSnap.exists()) {
                         window.isBatasAktifGlobal = docSnap.data().aktif;
-                        document.getElementById("cbBatasWaktu").checked = window.isBatasAktifGlobal;
+                        let cb = document.getElementById("cbBatasWaktu");
+                        if(cb) cb.checked = window.isBatasAktifGlobal;
                         localStorage.setItem("batasWaktuAktif", window.isBatasAktifGlobal);
                     }
                     if (typeof window.checkReady === 'function') window.checkReady();
@@ -527,15 +582,26 @@
                     console.error("Gagal sinkronisasi data awan:", error);
                 });
 
-                // 2. Fungsi untuk Mengirim perubahan ke Cloud saat Admin mengklik centang
+                // 2. Fungsi Admin untuk Kirim Sinyal
                 window.updateFirebaseSetting = async (status) => {
                     try {
                         await setDoc(settingRef, { aktif: status });
+                        let statusEl = document.getElementById("statusSync");
+                        if(statusEl) {
+                            statusEl.innerHTML = '<i class="fas fa-check-circle"></i> Sinkronisasi Berhasil (Perintah disebar ke semua HP)';
+                            statusEl.className = "help has-text-success mt-1";
+                        }
                     } catch (e) {
                         console.error("Gagal mengirim status ke cloud:", e);
                     }
                 };
             });
+        } else {
+             let statusEl = document.getElementById("statusSync");
+             if(statusEl) {
+                 statusEl.innerHTML = '<i class="fas fa-exclamation-circle"></i> Berjalan di Luar Preview (Mode Lokal)';
+                 statusEl.className = "help has-text-danger mt-1";
+             }
         }
     } catch (error) {
         console.error("Cloud module error:", error);
