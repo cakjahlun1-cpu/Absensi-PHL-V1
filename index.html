@@ -22,10 +22,11 @@
 <div class="container" style="max-width: 480px;">
     <div class="card">
         <div class="card-content" style="position: relative;">
-            <!-- Ikon Pengaturan Tersembunyi -->
-            <i class="fas fa-cog" style="position: absolute; top: 15px; right: 15px; cursor: pointer; color: #dbdbdb;" onclick="bukaPassword()" title="Pengaturan Admin"></i>
             
-            <h4 class="title is-4 has-text-centered"><i class="fas fa-user-clock"></i> Absensi PHL</h4>
+            <!-- Rahasia Admin: Ketuk judul ini 5 kali dengan cepat untuk buka pengaturan -->
+            <h4 class="title is-4 has-text-centered" onclick="tapAdmin()" style="user-select: none; cursor: default;">
+                <i class="fas fa-user-clock"></i> Absensi PHL
+            </h4>
             
             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 15px;">
                 <button type="button" onclick="pilihJenis('MASUK')" id="btn-masuk" style="background-color: #4361ee; color: white; padding: 10px; border: none; border-radius: 8px; font-weight: bold; font-size: 12px;">Masuk</button>
@@ -184,7 +185,7 @@
           Kunci Absen Masuk (09:00)
         </label>
         <p class="help mt-1 mb-2">Hilangkan centang untuk <b>membuka akses</b> bagi semua karyawan di semua perangkat secara bersamaan.</p>
-        <p id="statusSync" class="help has-text-grey mt-1"><i class="fas fa-sync fa-spin"></i> Memeriksa koneksi Cloud...</p>
+        <p id="statusSync" class="help has-text-grey mt-1"><i class="fas fa-sync fa-spin"></i> Menunggu perintah...</p>
       </div>
       <button class="button is-info is-small is-fullwidth mt-4" onclick="tutupPengaturan()">Tutup Panel</button>
     </div>
@@ -217,8 +218,21 @@
     // Status Kunci Global (Default: Terkunci/True)
     window.isBatasAktifGlobal = true; 
 
+    // Sistem Rahasia: Ketuk 5 Kali
+    let tapCount = 0;
+    let tapTimer = null;
+    window.tapAdmin = () => {
+        tapCount++;
+        clearTimeout(tapTimer);
+        if (tapCount >= 5) {
+            bukaPassword();
+            tapCount = 0;
+        } else {
+            tapTimer = setTimeout(() => { tapCount = 0; }, 2000);
+        }
+    };
+
     window.onload = () => { 
-        // Ambil pengaturan yang tersimpan lokal sebagai data awal sebelum loading dari internet
         let savedBatas = localStorage.getItem("batasWaktuAktif");
         if (savedBatas !== null) {
             window.isBatasAktifGlobal = (savedBatas === "true");
@@ -226,7 +240,8 @@
         }
         fetchDataSistem(); 
         initGPS(); 
-        setInterval(checkReady, 30000); // Cek ulang setiap 30 detik
+        // LAKUKAN PENGECEKAN KE SERVER SETIAP 15 DETIK (PENGGANTI FIREBASE)
+        setInterval(cekKunciDariServer, 15000); 
     };
 
     // Fungsi Password Admin
@@ -250,7 +265,6 @@
         }
     }
 
-    // Fungsi Buka Tutup Pengaturan Admin
     function bukaPengaturan() {
         document.getElementById("modalPengaturan").classList.add("is-active");
     }
@@ -259,32 +273,54 @@
         document.getElementById("modalPengaturan").classList.remove("is-active");
     }
 
-    // Fungsi Mengubah Batas Waktu dan Kirim ke Semua HP (Cloud Sync)
+    // Fungsi MENGIRIM perintah Buka Kunci ke Google Apps Script
     window.toggleBatasWaktu = function(status) {
         window.isBatasAktifGlobal = status;
         localStorage.setItem("batasWaktuAktif", status);
         
         let statusEl = document.getElementById("statusSync");
+        if(statusEl) {
+            statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengirim perintah ke Server...';
+            statusEl.className = "help has-text-warning mt-1";
+        }
         
-        // Cek jika tersambung ke Firebase Canvas
-        if (typeof window.updateFirebaseSetting === 'function') {
+        let payload = {
+            jenis: "UPDATE_SETTING",
+            statusKunci: status
+        };
+
+        fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) })
+        .then(() => {
             if(statusEl) {
-                statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyinkronkan...';
-                statusEl.className = "help has-text-warning mt-1";
+                statusEl.innerHTML = '<i class="fas fa-check-circle"></i> Sinkronisasi Berhasil (Perintah disebar ke semua HP)';
+                statusEl.className = "help has-text-success mt-1";
             }
-            window.updateFirebaseSetting(status);
-        } else {
-            // Jika diekspor keluar (misal ke Apps Script langsung)
+        })
+        .catch(() => {
             if(statusEl) {
-                statusEl.innerHTML = '<i class="fas fa-exclamation-circle"></i> Mode Lokal Aktif (Perubahan hanya di HP ini)';
+                statusEl.innerHTML = '<i class="fas fa-times-circle"></i> Gagal terhubung ke Server.';
                 statusEl.className = "help has-text-danger mt-1";
             }
-            showModal("PEMBERITAHUAN: Anda membuka aplikasi di luar preview, fitur Remote/Awan mungkin tidak berjalan. Batas hanya terbuka di HP ini.");
-        }
+        });
+
         checkReady(); 
     };
 
-    // Fungsi Custom Modal Message
+    // Fungsi MEMBACA status Kunci dari Google Apps Script secara rutin
+    function cekKunciDariServer() {
+        fetch(SCRIPT_URL + "?action=cekKunci")
+        .then(res => res.json())
+        .then(data => {
+            if (data.kunciGlobal !== undefined) {
+                window.isBatasAktifGlobal = data.kunciGlobal;
+                let cb = document.getElementById("cbBatasWaktu");
+                if (cb) cb.checked = window.isBatasAktifGlobal;
+                localStorage.setItem("batasWaktuAktif", window.isBatasAktifGlobal);
+                checkReady(); // Perbarui UI seketika jika ada perubahan dari admin
+            }
+        }).catch(err => console.log("Gagal cek kunci: ", err));
+    }
+
     function showModal(message, reload = false) {
         document.getElementById("messageText").innerText = message;
         document.getElementById("messageModal").classList.add("is-active");
@@ -293,15 +329,21 @@
 
     function closeModal() {
         document.getElementById("messageModal").classList.remove("is-active");
-        if (reloadAfterClose) {
-            window.location.reload();
-        }
+        if (reloadAfterClose) window.location.reload();
     }
 
     async function fetchDataSistem() {
         try {
             let res = await fetch(SCRIPT_URL);
             let data = await res.json();
+            
+            // Ambil Status Kunci Awal saat pertama kali dimuat
+            if (data.kunciGlobal !== undefined) {
+                window.isBatasAktifGlobal = data.kunciGlobal;
+                let cb = document.getElementById("cbBatasWaktu");
+                if(cb) cb.checked = window.isBatasAktifGlobal;
+            }
+
             lokasiData = data.lokasi;
             let select = document.getElementById("lokasi");
             select.innerHTML = '<option value="" disabled selected>-- Pilih Posko/Korwil --</option>';
@@ -315,6 +357,7 @@
                 let option = document.createElement("option");
                 option.value = nama; dataList.appendChild(option);
             });
+            checkReady();
         } catch(e) { console.error("Sync Error", e); }
     }
 
@@ -356,7 +399,7 @@
             inputFoto.removeAttribute("capture"); 
             lblFoto.innerText = "Bukti SS Chat Izin (Wajib)";
             btnFotoText.innerText = "Pilih SS Chat";
-            isRadiusOk = true; // RADIUS DIMATIKAN TOTAL UNTUK IZIN
+            isRadiusOk = true;
         }
         checkReady();
     };
@@ -421,13 +464,12 @@
         let warningWaktu = document.getElementById("warningWaktu");
         let isWaktuHabis = false;
 
-        // Cek Jam Terkini
         let jamSekarang = new Date().getHours();
 
         if (currentMode === 'MASUK') {
             if (jamSekarang >= 9) { 
                 if (window.isBatasAktifGlobal) {
-                    // Jika jam lewat 9 dan Sistem TERKUNCI
+                    // Sistem Terkunci
                     isWaktuHabis = true;
                     if(warningWaktu) {
                         warningWaktu.classList.remove("hidden");
@@ -435,7 +477,7 @@
                         warningWaktu.innerHTML = `<div><i class="fas fa-lock"></i> Batas waktu Absen Masuk (09:00) telah lewat. Absen Dikunci.</div>`;
                     }
                 } else {
-                    // Jika jam lewat 9 dan Sistem TELAH DIBUKA ADMIN
+                    // Sistem Dibuka Admin dari jarak jauh
                     isWaktuHabis = false;
                     if(warningWaktu) {
                         warningWaktu.classList.remove("hidden");
@@ -444,30 +486,24 @@
                     }
                 }
             } else {
-                // Jika masih di bawah jam 9 pagi
                 if(warningWaktu) warningWaktu.classList.add("hidden");
             }
         } else {
-            // Jika tab "Pulang" atau "Tidak Masuk"
             if(warningWaktu) warningWaktu.classList.add("hidden");
         }
         
-        // Logika khusus laporan tab PULANG
         let laporanOke = true; 
         if (currentMode === 'PULANG') {
             let adaTugas = false;
             document.querySelectorAll('input[name="tugas"]').forEach(cb => {
                 if (cb.checked) adaTugas = true;
             });
-            
             let adaTeks = document.getElementById("detail_rutin").value.trim() !== "" ||
                           document.getElementById("detail_tambahan").value.trim() !== "" ||
                           document.getElementById("kendala_lapangan").value.trim() !== "";
-            
             laporanOke = (adaTugas || adaTeks);
         }
 
-        // PENGECEKAN SYARAT DAN TAMPILAN ERROR DI ATAS TOMBOL
         let pesanKurang = [];
         if (!selectedLokasi) pesanKurang.push("Pilih Lokasi");
         if (!isRadiusOk && selectedLokasi) pesanKurang.push("Berada di Radius Aman");
@@ -491,7 +527,6 @@
     document.getElementById("formAbsen").addEventListener("submit", (e) => {
         e.preventDefault();
 
-        // Keamanan ganda
         if (currentMode === 'MASUK' && window.isBatasAktifGlobal && new Date().getHours() >= 9) {
             return showModal("Batas waktu Absen Masuk (09:00) telah lewat!");
         }
@@ -532,80 +567,6 @@
         .then(() => { showModal("Laporan Berhasil Terkirim!", true); })
         .catch(() => { showModal("Pengiriman Gagal, coba lagi."); btn.classList.remove("is-loading"); });
     });
-</script>
-
-<!-- Modul Firebase untuk Sinkronisasi Antar HP secara Real-time -->
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-    try {
-        if (typeof __firebase_config !== 'undefined') {
-            const firebaseConfig = JSON.parse(__firebase_config);
-            const app = initializeApp(firebaseConfig);
-            const auth = getAuth(app);
-            const db = getFirestore(app);
-            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
-            const initAuth = async () => {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            };
-            initAuth();
-
-            onAuthStateChanged(auth, (user) => {
-                if (!user) return;
-
-                // Memperbarui UI di Admin bahwa Cloud Siap
-                let statusEl = document.getElementById("statusSync");
-                if(statusEl) {
-                    statusEl.innerHTML = '<i class="fas fa-cloud"></i> Terhubung ke Sistem Cloud';
-                    statusEl.className = "help has-text-info mt-1";
-                }
-
-                const settingRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'globalConfig');
-
-                // 1. Terima Sinyal Buka/Tutup dari Awan
-                onSnapshot(settingRef, (docSnap) => {
-                    if (docSnap.exists()) {
-                        window.isBatasAktifGlobal = docSnap.data().aktif;
-                        let cb = document.getElementById("cbBatasWaktu");
-                        if(cb) cb.checked = window.isBatasAktifGlobal;
-                        localStorage.setItem("batasWaktuAktif", window.isBatasAktifGlobal);
-                    }
-                    if (typeof window.checkReady === 'function') window.checkReady();
-                }, (error) => {
-                    console.error("Gagal sinkronisasi data awan:", error);
-                });
-
-                // 2. Fungsi Admin untuk Kirim Sinyal
-                window.updateFirebaseSetting = async (status) => {
-                    try {
-                        await setDoc(settingRef, { aktif: status });
-                        let statusEl = document.getElementById("statusSync");
-                        if(statusEl) {
-                            statusEl.innerHTML = '<i class="fas fa-check-circle"></i> Sinkronisasi Berhasil (Perintah disebar ke semua HP)';
-                            statusEl.className = "help has-text-success mt-1";
-                        }
-                    } catch (e) {
-                        console.error("Gagal mengirim status ke cloud:", e);
-                    }
-                };
-            });
-        } else {
-             let statusEl = document.getElementById("statusSync");
-             if(statusEl) {
-                 statusEl.innerHTML = '<i class="fas fa-exclamation-circle"></i> Berjalan di Luar Preview (Mode Lokal)';
-                 statusEl.className = "help has-text-danger mt-1";
-             }
-        }
-    } catch (error) {
-        console.error("Cloud module error:", error);
-    }
 </script>
 
 </body>
