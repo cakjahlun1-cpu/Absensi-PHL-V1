@@ -241,7 +241,7 @@
         fetchDataSistem(); 
         initGPS(); 
         // LAKUKAN PENGECEKAN KE SERVER SETIAP 15 DETIK (PENGGANTI FIREBASE)
-        setInterval(cekKunciDariServer, 15000); 
+        setInterval(cekKunciDariServer, 20000); 
     };
 
     // Fungsi Password Admin
@@ -379,7 +379,10 @@
             btn.style.backgroundColor = "white"; btn.style.color = (btn.id === 'btn-tidak') ? "#e63946" : "#4361ee";
         });
 
-        const activeBtn = document.getElementById('btn-' + mode.toLowerCase().replace(' ', ''));
+        let btnId = 'btn-masuk';
+        if (mode === 'PULANG') btnId = 'btn-pulang';
+        else if (mode === 'TIDAK MASUK') btnId = 'btn-tidak';
+        const activeBtn = document.getElementById(btnId);
         if(activeBtn) { activeBtn.style.backgroundColor = (mode === 'TIDAK MASUK') ? "#e63946" : "#4361ee"; activeBtn.style.color = "white"; }
 
         if (mode === 'MASUK') {
@@ -524,48 +527,106 @@
         }
     }
     
-    document.getElementById("formAbsen").addEventListener("submit", (e) => {
-        e.preventDefault();
+    document.getElementById("formAbsen").addEventListener("submit", async (e) => {
+    e.preventDefault();
 
-        if (currentMode === 'MASUK' && window.isBatasAktifGlobal && new Date().getHours() >= 9) {
-            return showModal("Batas waktu Absen Masuk (09:00) telah lewat!");
+    if (currentMode === 'MASUK' && window.isBatasAktifGlobal && new Date().getHours() >= 9) {
+        return showModal("Batas waktu Absen Masuk (09:00) telah lewat!");
+    }
+
+    let inputNama = document.getElementById("nama").value.toUpperCase();
+    if (!personilData.some(n => n.toUpperCase() === inputNama)) {
+        return showModal("NAMA TIDAK TERDAFTAR!");
+    }
+
+    let btn = document.getElementById("btnKirim");
+    btn.classList.add("is-loading");
+    btn.disabled = true;
+
+    let listStatus = [];
+    document.querySelectorAll('.item-tugas').forEach(div => {
+        let cb = div.querySelector('input[type="checkbox"]');
+        let st = div.querySelector('select').value;
+        if(cb.checked) { listStatus.push(cb.value + " (" + st + ")"); }
+    });
+
+    let catatan = (currentMode === "TIDAK MASUK") ? 
+        document.getElementById("kategori_tidak_masuk").value + ": " + document.getElementById("alasan_detail").value : 
+        document.getElementById("kendala_lapangan").value;
+
+    let payload = {
+        jenis: currentMode,
+        nama: inputNama,
+        lokasiKerja: selectedLokasi ? selectedLokasi.nama : "TIDAK MASUK",
+        targetLat: selectedLokasi ? selectedLokasi.lat : 0,
+        targetLng: selectedLokasi ? selectedLokasi.lng : 0,
+        maxRadius: selectedLokasi ? selectedLokasi.radius : 99999,
+        userLat: userLoc.lat, userLng: userLoc.lng,
+        laporanStatus: listStatus.join(", "),
+        detailRutin: document.getElementById("detail_rutin").value || "-",
+        detailTambahan: document.getElementById("detail_tambahan").value || "-",
+        kendala: catatan || "-",
+        foto: base64Foto
+    };
+
+    // ============================================================
+    // PERBAIKAN: Kirim dengan retry otomatis + cek response server
+    // ============================================================
+    const MAX_RETRY = 3;
+    let berhasil = false;
+    let pesanError = "";
+
+    for (let percobaan = 1; percobaan <= MAX_RETRY; percobaan++) {
+        try {
+            // Update UI saat retry
+            if (percobaan > 1) {
+                btn.innerHTML = `Mengirim ulang... (${percobaan}/${MAX_RETRY})`;
+            }
+
+            let res = await fetch(SCRIPT_URL, { 
+                method: "POST", 
+                body: JSON.stringify(payload) 
+            });
+            
+            // Baca response dari server
+            let hasil = await res.json();
+            
+            if (hasil.status === "SUCCESS") {
+                berhasil = true;
+                break; // Sukses, keluar dari loop retry
+            } else {
+                pesanError = hasil.message || "Server gagal menyimpan data";
+                // Tunggu 2 detik sebelum retry
+                if (percobaan < MAX_RETRY) {
+                    await new Promise(r => setTimeout(r, 2000));
+                }
+            }
+        } catch (err) {
+            pesanError = err.toString();
+            // Tunggu sebelum retry (kecuali percobaan terakhir)
+            if (percobaan < MAX_RETRY) {
+                await new Promise(r => setTimeout(r, 2000));
+            }
         }
+    }
 
-        let inputNama = document.getElementById("nama").value.toUpperCase();
-        if (!personilData.some(n => n.toUpperCase() === inputNama)) return showModal("NAMA TIDAK TERDAFTAR!");
+    btn.classList.remove("is-loading");
+    btn.disabled = false;
+    btn.innerHTML = "KIRIM DATA";
 
-        let btn = document.getElementById("btnKirim");
-        btn.classList.add("is-loading");
-
-        let listStatus = [];
-        document.querySelectorAll('.item-tugas').forEach(div => {
-            let cb = div.querySelector('input[type="checkbox"]');
-            let st = div.querySelector('select').value;
-            if(cb.checked) { listStatus.push(cb.value + " (" + st + ")"); }
-        });
-
-        let catatan = (currentMode === "TIDAK MASUK") ? 
-            document.getElementById("kategori_tidak_masuk").value + ": " + document.getElementById("alasan_detail").value : 
-            document.getElementById("kendala_lapangan").value;
-
-        let payload = {
-            jenis: currentMode,
-            nama: inputNama,
-            lokasiKerja: selectedLokasi ? selectedLokasi.nama : "TIDAK MASUK",
-            targetLat: selectedLokasi ? selectedLokasi.lat : 0,
-            targetLng: selectedLokasi ? selectedLokasi.lng : 0,
-            maxRadius: selectedLokasi ? selectedLokasi.radius : 99999,
-            userLat: userLoc.lat, userLng: userLoc.lng,
-            laporanStatus: listStatus.join(", "),
-            detailRutin: document.getElementById("detail_rutin").value || "-",
-            detailTambahan: document.getElementById("detail_tambahan").value || "-",
-            kendala: catatan || "-",
-            foto: base64Foto
-        };
-
-        fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) })
-        .then(() => { showModal("Laporan Berhasil Terkirim!", true); })
-        .catch(() => { showModal("Pengiriman Gagal, coba lagi."); btn.classList.remove("is-loading"); });
+    if (berhasil) {
+        showModal("✅ Laporan Berhasil Terkirim & Tersimpan!", true);
+    } else {
+        showModal("❌ Pengiriman GAGAL setelah 3x percobaan.\n\nSilakan screenshot pesan ini dan laporkan ke admin:\n\n" + pesanError);
+    }
+    });
+    // Buat checkReady() reaktif terhadap perubahan laporan
+    document.querySelectorAll('input[name="tugas"]').forEach(cb => {
+    cb.addEventListener('change', checkReady);
+    });
+    ['detail_rutin', 'detail_tambahan', 'kendala_lapangan'].forEach(id => {
+    let el = document.getElementById(id);
+    if (el) el.addEventListener('input', checkReady);
     });
 </script>
 
