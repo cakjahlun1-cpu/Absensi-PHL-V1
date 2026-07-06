@@ -182,7 +182,7 @@
       <div class="field">
         <label class="checkbox" style="font-weight: bold; display: flex; align-items: center; gap: 8px;">
           <input type="checkbox" id="cbBatasWaktu" checked onchange="toggleBatasWaktu(this.checked)">
-          Kunci Absen Masuk (09:00)
+          Absen Telah Terkunci
         </label>
         <p class="help mt-1 mb-2">Hilangkan centang untuk <b>membuka akses</b> bagi semua karyawan di semua perangkat secara bersamaan.</p>
         <p id="statusSync" class="help has-text-grey mt-1"><i class="fas fa-sync fa-spin"></i> Menunggu perintah...</p>
@@ -470,7 +470,7 @@
         let jamSekarang = new Date().getHours();
 
         if (currentMode === 'MASUK') {
-            if (jamSekarang >= 9) { 
+            if (jamSekarang >= 7.30) { 
                 if (window.isBatasAktifGlobal) {
                     // Sistem Terkunci
                     isWaktuHabis = true;
@@ -531,7 +531,7 @@
     e.preventDefault();
 
     if (currentMode === 'MASUK' && window.isBatasAktifGlobal && new Date().getHours() >= 9) {
-        return showModal("Batas waktu Absen Masuk (09:00) telah lewat!");
+        return showModal("Batas waktu Absen Masuk telah lewat!");
     }
 
     let inputNama = document.getElementById("nama").value.toUpperCase();
