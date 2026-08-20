@@ -48,7 +48,7 @@
                     <label class="label">Pilih Posko/Korwil</label>
                     <div class="control has-icons-left">
                         <div class="select is-fullwidth">
-                            <select id="lokasi" required onchange="updateTargetLokasi()">
+                            <select id="lokasi" required onchange="updateTargetLokasi(event)">
                                 <option value="" disabled selected>Memuat lokasi cepat...</option>
                             </select>
                         </div>
@@ -61,7 +61,7 @@
                 <div class="field">
                     <label class="label">Nama Lengkap</label>
                     <div class="control has-icons-left">
-                        <input class="input" type="text" id="nama" list="daftarNama" placeholder="Ketik & Pilih Nama..." required autocomplete="off">
+                        <input class="input" type="text" id="nama" list="daftarNama" placeholder="Ketik & Pilih Nama..." required autocomplete="off" oninput="checkReady()">
                         <datalist id="daftarNama"></datalist>
                         <span class="icon is-small is-left"><i class="fas fa-user"></i></span>
                     </div>
@@ -123,7 +123,7 @@
                     <label class="label" id="lblFoto">Foto Selfie (Wajib)</label>
                     <div class="file is-info is-fullwidth has-name">
                         <label class="file-label">
-                            <input class="file-input" type="file" id="cameraInput" accept="image/*" capture="user" onchange="processImage()">
+                            <input class="file-input" type="file" id="cameraInput" accept="image/*" capture="user" onchange="processImage(event)">
                             <span class="file-cta">
                                 <span class="file-icon"><i class="fas fa-camera"></i></span>
                                 <span class="file-label" id="btnFotoText">Buka Kamera</span>
@@ -239,14 +239,43 @@
 
     function setupEventListeners() {
         document.getElementById("formAbsen").addEventListener("submit", handleFormSubmit);
-        document.getElementById("lokasi").addEventListener("change", updateTargetLokasi);
-        document.getElementById("cameraInput").addEventListener("change", processImage);
         
         document.querySelectorAll('input[name="tugas"]').forEach(cb => cb.addEventListener('change', checkReady));
         ['detail_tambahan', 'kendala_lapangan'].forEach(id => {
             let el = document.getElementById(id);
             if (el) el.addEventListener('input', checkReady);
         });
+    }
+
+    function initGPS() {
+        let gpsStatus = document.getElementById("gpsStatus");
+        
+        if (navigator.geolocation) {
+            gpsStatus.innerHTML = `<i class="fas fa-spinner fa-pulse"></i> Mencari satelit GPS...`;
+            gpsStatus.className = "notification is-light is-info is-small";
+
+            navigator.geolocation.watchPosition(
+                (pos) => {
+                    STATE.userLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                    gpsStatus.innerHTML = `<i class="fas fa-check-circle"></i> Lokasi Terkunci (Akurasi: ${Math.floor(pos.coords.accuracy)}m)`;
+                    gpsStatus.className = "notification is-light is-success is-small";
+                    validateRadius();
+                }, 
+                (err) => {
+                    let pesan = "Gagal mengunci GPS.";
+                    if (err.code === 1) pesan = "Akses GPS ditolak Browser!";
+                    if (err.code === 2) pesan = "Sinyal lemah. Coba di luar ruangan.";
+                    if (err.code === 3) pesan = "Pencarian GPS Timeout.";
+                    
+                    gpsStatus.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${pesan}`;
+                    gpsStatus.className = "notification is-light is-danger is-small";
+                }, 
+                { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 }
+            );
+        } else {
+            gpsStatus.innerHTML = `<i class="fas fa-times-circle"></i> Browser tidak mendukung GPS.`;
+            gpsStatus.className = "notification is-light is-danger is-small";
+        }
     }
 
     // ==========================================
@@ -256,21 +285,14 @@
         STATE.lokasiData = data.lokasi || [];
         STATE.personilData = data.personil || [];
         
-        // Render Dropdown Lokasi
         let select = document.getElementById("lokasi");
         select.innerHTML = '<option value="" disabled selected>-- Pilih Posko/Korwil --</option>';
-        STATE.lokasiData.forEach((loc, index) => {
-            select.add(new Option(loc.nama, index));
-        });
+        STATE.lokasiData.forEach((loc, index) => { select.add(new Option(loc.nama, index)); });
 
-        // Render Datalist Nama
         let dataList = document.getElementById("daftarNama");
         dataList.innerHTML = '';
-        STATE.personilData.forEach(nama => {
-            dataList.appendChild(new Option(nama, nama));
-        });
+        STATE.personilData.forEach(nama => { dataList.appendChild(new Option(nama, nama)); });
 
-        // Sinkronisasi Toggle Admin
         if (data.kunciGlobal !== undefined) {
             STATE.isBatasAktifGlobal = data.kunciGlobal;
             let cb = document.getElementById("cbBatasWaktu");
@@ -282,10 +304,101 @@
 
     window.pilihJenis = (mode) => {
         STATE.mode = mode;
-        // Logika menyembunyikan/menampilkan area, mengubah warna tombol, 
-        // dan mereset foto/lokasi tetap sama seperti versi sebelumnya.
-        // ... [Masukkan logika toggle UI Pilih Jenis di sini] ...
+        const areaTidak = document.getElementById('area-tidak-masuk');
+        const boxLaporan = document.getElementById('boxLaporan');
+        const inputFoto = document.getElementById("cameraInput");
+        const lblFoto = document.getElementById("lblFoto");
+        const btnFotoText = document.getElementById("btnFotoText");
+
+        document.getElementById("lokasi").selectedIndex = 0;
+        STATE.selectedLokasi = null;
+        document.getElementById("radiusInfo").classList.add("hidden");
+
+        // Reset semua warna tombol
+        document.querySelectorAll('button[id^="btn-"]').forEach(btn => {
+            btn.style.backgroundColor = "white"; 
+            btn.style.color = (btn.id === 'btn-tidak') ? "#e63946" : "#4361ee";
+        });
+
+        // Warnai tombol aktif
+        let btnId = mode === 'MASUK' ? 'btn-masuk' : (mode === 'PULANG' ? 'btn-pulang' : 'btn-tidak');
+        const activeBtn = document.getElementById(btnId);
+        if(activeBtn) { 
+            activeBtn.style.backgroundColor = (mode === 'TIDAK MASUK') ? "#e63946" : "#4361ee"; 
+            activeBtn.style.color = "white"; 
+        }
+
+        // Tampilkan/Sembunyikan area
+        if (mode === 'MASUK') {
+            areaTidak.classList.add("hidden"); boxLaporan.classList.add("hidden");
+            inputFoto.setAttribute("capture", "user"); 
+            lblFoto.innerText = "Foto Selfie (Wajib)"; btnFotoText.innerText = "Buka Kamera";
+            STATE.isRadiusOk = false;
+        } else if (mode === 'PULANG') {
+            areaTidak.classList.add("hidden"); boxLaporan.classList.remove("hidden");
+            inputFoto.removeAttribute("capture"); 
+            lblFoto.innerText = "Foto Kegiatan (Wajib)"; btnFotoText.innerText = "Pilih Foto/Kamera";
+            STATE.isRadiusOk = true; 
+        } else {
+            areaTidak.classList.remove("hidden"); boxLaporan.classList.add("hidden");
+            inputFoto.removeAttribute("capture"); 
+            lblFoto.innerText = "Bukti SS Chat Izin (Wajib)"; btnFotoText.innerText = "Pilih SS Chat";
+            STATE.isRadiusOk = true;
+        }
         checkReady();
+    };
+
+    // --- FITUR MODAL & ADMIN PANELS ---
+    window.showModal = (message, reload = false) => {
+        document.getElementById("messageText").innerText = message;
+        document.getElementById("messageModal").classList.add("is-active");
+        STATE.reloadAfterClose = reload;
+    };
+    window.closeModal = () => {
+        document.getElementById("messageModal").classList.remove("is-active");
+        if (STATE.reloadAfterClose) {
+            document.getElementById("formAbsen").reset();
+            window.location.reload();
+        }
+    };
+    window.tapAdmin = () => {
+        STATE.tapCount++;
+        clearTimeout(STATE.tapTimer);
+        if (STATE.tapCount >= 5) { window.bukaPassword(); STATE.tapCount = 0; } 
+        else { STATE.tapTimer = setTimeout(() => { STATE.tapCount = 0; }, 2000); }
+    };
+    window.bukaPassword = () => {
+        document.getElementById("inputPassword").value = "";
+        document.getElementById("errorPassword").classList.add("hidden");
+        document.getElementById("modalPassword").classList.add("is-active");
+    };
+    window.tutupPassword = () => { document.getElementById("modalPassword").classList.remove("is-active"); };
+    window.cekPassword = () => {
+        if (btoa(document.getElementById("inputPassword").value) === "YWRtaW4xMjM=") {
+            window.tutupPassword(); window.bukaPengaturan();
+        } else {
+            document.getElementById("errorPassword").classList.remove("hidden");
+        }
+    };
+    window.bukaPengaturan = () => { document.getElementById("modalPengaturan").classList.add("is-active"); };
+    window.tutupPengaturan = () => { document.getElementById("modalPengaturan").classList.remove("is-active"); };
+    
+    window.toggleBatasWaktu = (status) => {
+        STATE.isBatasAktifGlobal = status;
+        localStorage.setItem("batasWaktuAktif", status);
+        let statusEl = document.getElementById("statusSync");
+        statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengirim perintah...';
+        statusEl.className = "help has-text-warning mt-1";
+        
+        fetch(CONFIG.SCRIPT_URL, { method: "POST", body: JSON.stringify({ jenis: "UPDATE_SETTING", statusKunci: status }) })
+        .then(() => {
+            statusEl.innerHTML = '<i class="fas fa-check-circle"></i> Berhasil disinkronisasi';
+            statusEl.className = "help has-text-success mt-1";
+        }).catch(() => {
+            statusEl.innerHTML = '<i class="fas fa-times-circle"></i> Gagal koneksi.';
+            statusEl.className = "help has-text-danger mt-1";
+        });
+        checkReady(); 
     };
 
     function updateUIStatusLoading(isLoading, text = "KIRIM DATA") {
@@ -296,14 +409,14 @@
         else btn.classList.remove("is-loading");
     }
 
-    // Modal Controllers (Pindah semua fungsi modal ke area ini)
-    function showModal(message, reload = false) { /* ... */ }
-    function closeModal() { /* ... */ }
-    window.tapAdmin = () => { /* ... */ }
+    // ==========================================
+    // 4. CORE BUSINESS LOGIC (Logika Validasi)
+    // ==========================================
+    window.updateTargetLokasi = (e) => {
+        let idx = e.target.value;
+        if(idx !== "") { STATE.selectedLokasi = STATE.lokasiData[idx]; validateRadius(); }
+    };
 
-    // ==========================================
-    // 4. CORE BUSINESS LOGIC (Logika Validasi & Kompresi)
-    // ==========================================
     function validateRadius() {
         if (STATE.mode === 'TIDAK MASUK') { STATE.isRadiusOk = true; return; }
         if (!STATE.selectedLokasi || STATE.userLoc.lat === 0) return;
@@ -329,7 +442,7 @@
         checkReady();
     }
 
-    function processImage(e) {
+    window.processImage = (e) => {
         let file = e.target.files[0];
         if (!file) return;
         
@@ -354,13 +467,59 @@
             img.src = event.target.result;
         };
         reader.readAsDataURL(file);
-    }
+    };
 
-    function checkReady() {
-        // Evaluasi kelengkapan data (Lokasi, Radius, Waktu, Laporan)
-        // Jika lengkap, buka tombol. Jika belum, tampilkan pesan peringatan di labelSyarat.
-        // ... [Masukkan logika checkReady versi sebelumnya di sini] ...
-    }
+    window.checkReady = () => {
+        let btn = document.getElementById("btnKirim");
+        let warningWaktu = document.getElementById("warningWaktu");
+        let isWaktuHabis = false;
+        let jamSekarang = new Date().getHours();
+
+        if (STATE.mode === 'MASUK' && jamSekarang >= 9) { 
+            if (STATE.isBatasAktifGlobal) {
+                isWaktuHabis = true;
+                if(warningWaktu) {
+                    warningWaktu.classList.remove("hidden");
+                    warningWaktu.className = "notification is-danger is-light is-small";
+                    warningWaktu.innerHTML = `<i class="fas fa-lock"></i> Absen Masuk dikunci. Lewat dari 09:00.`;
+                }
+            } else {
+                isWaktuHabis = false;
+                if(warningWaktu) {
+                    warningWaktu.classList.remove("hidden");
+                    warningWaktu.className = "notification is-success is-light is-small";
+                    warningWaktu.innerHTML = `<i class="fas fa-unlock"></i> Keterlambatan dibuka oleh Admin.`;
+                }
+            }
+        } else {
+            if(warningWaktu) warningWaktu.classList.add("hidden");
+        }
+        
+        let laporanOke = true; 
+        if (STATE.mode === 'PULANG') {
+            let adaTugas = Array.from(document.querySelectorAll('input[name="tugas"]')).some(cb => cb.checked);
+            let adaTeks = document.getElementById("detail_tambahan").value.trim() !== "" || document.getElementById("kendala_lapangan").value.trim() !== "";
+            laporanOke = (adaTugas || adaTeks);
+        }
+
+        let pesanKurang = [];
+        if (!STATE.selectedLokasi) pesanKurang.push("Lokasi");
+        if (!STATE.isRadiusOk && STATE.selectedLokasi) pesanKurang.push("Radius Aman");
+        if (STATE.base64Foto === "") pesanKurang.push("Foto");
+        if (STATE.mode === 'PULANG' && !laporanOke) pesanKurang.push("Laporan Kerja");
+        if (isWaktuHabis) pesanKurang.push("Waktu Habis");
+
+        let labelSyarat = document.getElementById("syaratKirim");
+        if (pesanKurang.length > 0) {
+            btn.disabled = true;
+            btn.innerHTML = "KIRIM DATA";
+            if(labelSyarat) { labelSyarat.classList.remove("hidden"); labelSyarat.innerText = "*Syarat belum lengkap: " + pesanKurang.join(", ") + "*"; }
+        } else {
+            btn.disabled = false;
+            btn.innerHTML = "KIRIM DATA";
+            if(labelSyarat) labelSyarat.classList.add("hidden");
+        }
+    };
 
     // ==========================================
     // 5. NETWORK & API LAYER (Komunikasi Server)
@@ -378,20 +537,19 @@
         e.preventDefault();
         
         if (STATE.mode === 'MASUK' && STATE.isBatasAktifGlobal && new Date().getHours() >= 9) {
-            return showModal("Batas waktu Absen Masuk telah lewat!");
+            return window.showModal("Batas waktu Absen Masuk telah lewat!");
         }
 
         let inputNama = document.getElementById("nama").value.toUpperCase();
         if (!STATE.personilData.some(n => n.toUpperCase() === inputNama)) {
-            return showModal("NAMA TIDAK TERDAFTAR!");
+            return window.showModal("NAMA TIDAK TERDAFTAR!");
         }
 
         updateUIStatusLoading(true, "Menghubungi Server...");
 
-        // Timer penenang untuk sistem antrean (Mencegah user refresh halaman)
         let timerAntrean = setTimeout(() => {
-            updateUIStatusLoading(true, "<i class='fas fa-hourglass-half fa-spin'></i> Mengantri masuk ke data...");
-            showModal("Data Anda sedang diproses oleh sistem. Mohon JANGAN keluar atau me-refresh halaman ini hingga muncul tanda berhasil.", false);
+            updateUIStatusLoading(true, "<i class='fas fa-hourglass-half fa-spin'></i> Mengantri...");
+            window.showModal("Data sedang antre masuk ke server. Mohon JANGAN keluar halaman ini.", false);
         }, 4000);
 
         let payload = constructPayload(inputNama);
@@ -399,8 +557,36 @@
     }
 
     function constructPayload(nama) {
-        // ... [Logika pembentukan object payload dari input HTML] ...
-        return {}; 
+        let listStatus = [];
+        document.querySelectorAll('.item-tugas').forEach(div => {
+            let cb = div.querySelector('input[type="checkbox"]');
+            let st = div.querySelector('select').value;
+            if(cb.checked) { listStatus.push(cb.value + " (" + st + ")"); }
+        });
+
+        let catatan = (STATE.mode === "TIDAK MASUK") ? 
+            document.getElementById("kategori_tidak_masuk").value + ": " + document.getElementById("alasan_detail").value : 
+            document.getElementById("kendala_lapangan").value;
+
+        // Bikin ID unik biar kalau diklik berkali-kali server cuma nyatat 1 kali
+        let unikId = new Date().getTime() + "_" + nama.replace(/\s+/g, '');
+
+        return {
+            requestId: unikId,
+            jenis: STATE.mode,
+            nama: nama,
+            lokasiKerja: STATE.selectedLokasi ? STATE.selectedLokasi.nama : "TIDAK MASUK",
+            userLat: STATE.userLoc.lat, 
+            userLng: STATE.userLoc.lng,
+            targetLat: STATE.selectedLokasi ? STATE.selectedLokasi.lat : null,
+            targetLng: STATE.selectedLokasi ? STATE.selectedLokasi.lng : null,
+            maxRadius: STATE.selectedLokasi ? STATE.selectedLokasi.radius : null,
+            laporanStatus: listStatus.join(", "),
+            detailRutin: "-",
+            detailTambahan: document.getElementById("detail_tambahan").value || "-",
+            kendala: catatan || "-",
+            foto: STATE.base64Foto
+        }; 
     }
 
     async function sendDataToServer(payload, timerId) {
@@ -417,7 +603,7 @@
                 if (hasil.status === "SUCCESS") {
                     berhasil = true; break; 
                 } else {
-                    pesanError = hasil.message || "Antrean Server Penuh";
+                    pesanError = hasil.message || "Antrean Penuh";
                     if (percobaan < CONFIG.MAX_RETRY) await new Promise(r => setTimeout(r, 2000));
                 }
             } catch (err) {
@@ -429,8 +615,8 @@
         clearTimeout(timerId);
         updateUIStatusLoading(false);
         
-        if (berhasil) showModal("✅ Laporan Berhasil Terkirim!", true);
-        else showModal("❌ Server sedang sibuk/macet. Coba tekan kirim lagi dalam 5 detik.\n\nError: " + pesanError);
+        if (berhasil) window.showModal("✅ Laporan Berhasil Terkirim!", true);
+        else window.showModal("❌ Server sedang sibuk/macet. Coba tekan kirim lagi dalam 5 detik.\n\nError: " + pesanError);
     }
 </script>
 
