@@ -42,7 +42,7 @@
         <div class="card-content" style="position: relative;">
             
             <!-- BANNER PERINGATAN DECOMMISSIONED -->
-            <div class="peringatan-sistem">
+            <div class="peringatan-sistem" id="bannerPeringatan">
                 <h6 class="title is-6 has-text-danger mb-2" style="font-weight: bold;">
                     <i class="fas fa-exclamation-triangle fa-fade"></i> DECOMMISSIONED SYSTEM
                 </h6>
@@ -200,14 +200,28 @@
   <div class="modal-content" style="max-width: 320px; margin: 0 auto;">
     <div class="box">
       <h5 class="title is-5 mb-3"><i class="fas fa-cogs"></i> Panel Admin</h5>
-      <div class="field">
+      
+      <!-- Pengaturan Batas Waktu -->
+      <div class="field mb-4">
         <label class="checkbox" style="font-weight: bold; display: flex; align-items: center; gap: 8px;">
           <input type="checkbox" id="cbBatasWaktu" checked onchange="toggleBatasWaktu(this.checked)">
           Absen Telah Terkunci
         </label>
         <p class="help mt-1 mb-2">Hilangkan centang untuk <b>membuka akses</b> bagi semua pekerja lapangan secara bersamaan.</p>
-        <p id="statusSync" class="help has-text-grey mt-1"><i class="fas fa-sync fa-spin"></i> Menunggu perintah...</p>
       </div>
+
+      <hr style="margin: 10px 0;">
+
+      <!-- Pengaturan Papan Pengumuman -->
+      <div class="field mb-2">
+        <label class="checkbox" style="font-weight: bold; display: flex; align-items: center; gap: 8px;">
+          <input type="checkbox" id="cbBanner" checked onchange="toggleBanner(this.checked)">
+          Tampilkan Pengumuman
+        </label>
+        <p class="help mt-1 mb-2">Hilangkan centang untuk <b>menyembunyikan</b> papan peringatan Decommissioned System.</p>
+      </div>
+
+      <p id="statusSync" class="help has-text-grey mt-3 has-text-centered"><i class="fas fa-sync fa-spin"></i> Menunggu perintah...</p>
       <button class="button is-info is-small is-fullwidth mt-4" onclick="tutupPengaturan()">Tutup Panel</button>
     </div>
   </div>
@@ -245,6 +259,7 @@
         isRadiusOk: false,
         reloadAfterClose: false,
         isBatasAktifGlobal: true,
+        isBannerAktif: true, // State untuk banner
         tapCount: 0,
         tapTimer: null
     };
@@ -262,6 +277,14 @@
     function loadCachedData() {
         let savedBatas = localStorage.getItem("batasWaktuAktif");
         if (savedBatas !== null) STATE.isBatasAktifGlobal = (savedBatas === "true");
+        
+        let savedBanner = localStorage.getItem("bannerAktif");
+        if (savedBanner !== null) {
+            STATE.isBannerAktif = (savedBanner === "true");
+            if (!STATE.isBannerAktif) {
+                document.getElementById("bannerPeringatan").classList.add("hidden");
+            }
+        }
         
         let cachedData = localStorage.getItem("dataSistemPHL_v3");
         if (cachedData) renderDataDropdown(JSON.parse(cachedData));
@@ -323,12 +346,26 @@
         dataList.innerHTML = '';
         STATE.personilData.forEach(nama => { dataList.appendChild(new Option(nama, nama)); });
 
+        // Update Setelan Batas Waktu
         if (data.kunciGlobal !== undefined) {
             STATE.isBatasAktifGlobal = data.kunciGlobal;
             let cb = document.getElementById("cbBatasWaktu");
             if(cb) cb.checked = STATE.isBatasAktifGlobal;
             localStorage.setItem("batasWaktuAktif", STATE.isBatasAktifGlobal);
         }
+
+        // Update Setelan Banner dari Server (Jika diset up di server, ini memastikan sinkron global)
+        if (data.bannerAktif !== undefined) {
+            STATE.isBannerAktif = data.bannerAktif;
+            let cbBanner = document.getElementById("cbBanner");
+            if(cbBanner) cbBanner.checked = STATE.isBannerAktif;
+            localStorage.setItem("bannerAktif", STATE.isBannerAktif);
+            
+            let bannerEl = document.getElementById("bannerPeringatan");
+            if (STATE.isBannerAktif) bannerEl.classList.remove("hidden");
+            else bannerEl.classList.add("hidden");
+        }
+
         checkReady();
     }
 
@@ -413,22 +450,49 @@
     window.bukaPengaturan = () => { document.getElementById("modalPengaturan").classList.add("is-active"); };
     window.tutupPengaturan = () => { document.getElementById("modalPengaturan").classList.remove("is-active"); };
     
+    // Fungsi Toggle Lock Absen
     window.toggleBatasWaktu = (status) => {
         STATE.isBatasAktifGlobal = status;
         localStorage.setItem("batasWaktuAktif", status);
         let statusEl = document.getElementById("statusSync");
-        statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengirim perintah...';
+        statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengirim perintah lock absen...';
         statusEl.className = "help has-text-warning mt-1";
         
         fetch(CONFIG.SCRIPT_URL, { method: "POST", body: JSON.stringify({ jenis: "UPDATE_SETTING", statusKunci: status }) })
         .then(() => {
-            statusEl.innerHTML = '<i class="fas fa-check-circle"></i> Berhasil disinkronisasi';
+            statusEl.innerHTML = '<i class="fas fa-check-circle"></i> Lock Absen disinkronisasi';
             statusEl.className = "help has-text-success mt-1";
         }).catch(() => {
             statusEl.innerHTML = '<i class="fas fa-times-circle"></i> Gagal koneksi.';
             statusEl.className = "help has-text-danger mt-1";
         });
         checkReady(); 
+    };
+
+    // Fungsi Toggle Banner Peringatan
+    window.toggleBanner = (status) => {
+        STATE.isBannerAktif = status;
+        localStorage.setItem("bannerAktif", status);
+        
+        let bannerEl = document.getElementById("bannerPeringatan");
+        if (status) {
+            bannerEl.classList.remove("hidden");
+        } else {
+            bannerEl.classList.add("hidden");
+        }
+
+        let statusEl = document.getElementById("statusSync");
+        statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengirim perintah banner...';
+        statusEl.className = "help has-text-warning mt-1";
+        
+        fetch(CONFIG.SCRIPT_URL, { method: "POST", body: JSON.stringify({ jenis: "UPDATE_SETTING", bannerAktif: status }) })
+        .then(() => {
+            statusEl.innerHTML = '<i class="fas fa-check-circle"></i> Status Banner disinkronisasi';
+            statusEl.className = "help has-text-success mt-1";
+        }).catch(() => {
+            statusEl.innerHTML = '<i class="fas fa-times-circle"></i> Gagal sinkronisasi ke server.';
+            statusEl.className = "help has-text-danger mt-1";
+        });
     };
 
     function updateUIStatusLoading(isLoading, text = "KIRIM DATA") {
