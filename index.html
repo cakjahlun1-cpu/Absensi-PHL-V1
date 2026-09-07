@@ -15,6 +15,24 @@
         .jarak-aman { background-color: #effaf3; color: #257942; border: 1px solid #48c774; }
         .jarak-bahaya { background-color: #feecf0; color: #cc0f35; border: 1px solid #f14668; }
         .item-tugas { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding: 5px; border-bottom: 1px solid #eee; }
+        
+        /* CSS Animasi untuk Papan Peringatan */
+        .peringatan-sistem {
+            border: 2px solid #f14668;
+            background-color: #feecf0;
+            color: #cc0f35;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            animation: pulse-danger 2s infinite;
+        }
+
+        @keyframes pulse-danger {
+            0% { box-shadow: 0 0 0 0 rgba(241, 70, 104, 0.5); }
+            70% { box-shadow: 0 0 0 10px rgba(241, 70, 104, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(241, 70, 104, 0); }
+        }
     </style>
 </head>
 <body>
@@ -22,6 +40,18 @@
 <div class="container" style="max-width: 480px;">
     <div class="card">
         <div class="card-content" style="position: relative;">
+            
+            <!-- BANNER PERINGATAN DECOMMISSIONED -->
+            <div class="peringatan-sistem">
+                <h6 class="title is-6 has-text-danger mb-2" style="font-weight: bold;">
+                    <i class="fas fa-exclamation-triangle fa-fade"></i> DECOMMISSIONED SYSTEM
+                </h6>
+                <p class="is-size-7" style="line-height: 1.5; color: #cc0f35;">
+                    Sistem ini akan <strong>ditake-down dan dimatikan sepenuhnya pada tanggal 12 September 2026</strong>, dan diganti dengan sistem baru <strong>HRIS Aglift</strong>.<br><br>
+                    Mohon untuk diperiksa kembali administrasi kehadiran Anda selama periode <strong>27 Agustus - 11 September 2026</strong>.
+                </p>
+            </div>
+            <!-- END BANNER PERINGATAN -->
             
             <h4 class="title is-4 has-text-centered" onclick="tapAdmin()" style="user-select: none; cursor: default;">
                 <i class="fas fa-user-clock"></i> Absensi PHL
